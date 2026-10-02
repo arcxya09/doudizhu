@@ -30,7 +30,7 @@ class MainActivity: Activity() {
     private lateinit var last:CardStrip
     private lateinit var lastLabel:TextView
     private lateinit var stakes:TextView
-    private val people=mutableListOf<TextView>()
+    private val people=mutableListOf<OpponentPanel>()
     private val selected=linkedSetOf<Int>()
     private val handler=Handler(Looper.getMainLooper())
     private var running=false
@@ -73,7 +73,7 @@ class MainActivity: Activity() {
         val options=button("声音 / 设置"){showSettings()};options.textSize=17f;header.addView(options,LinearLayout.LayoutParams(dp(124),dp(38)))
         table=LinearLayout(this).apply {gravity=Gravity.CENTER_VERTICAL}
         root.addView(table,LinearLayout.LayoutParams(-1,0,1f))
-        val left=text("",19f).apply{setPadding(dp(4),dp(6),dp(4),dp(6));setLineSpacing(dp(3).toFloat(),1f);setAutoSizeTextTypeUniformWithConfiguration(12,19,1,android.util.TypedValue.COMPLEX_UNIT_SP)}
+        val left=OpponentPanel(this)
         people.add(left);table.addView(left,LinearLayout.LayoutParams(dp(133),-1))
         val center=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(8),0,dp(8),0)}
         table.addView(center,LinearLayout.LayoutParams(0,-1,1f))
@@ -81,13 +81,13 @@ class MainActivity: Activity() {
         notice=text("",21f,gold).apply{setTypeface(null,Typeface.BOLD);gravity=Gravity.CENTER_VERTICAL;maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(16,21,1,android.util.TypedValue.COMPLEX_UNIT_SP)}
         top.addView(notice,LinearLayout.LayoutParams(0,-1,1f))
         bottom=CardStrip(this,art).apply {contentDescription="地主底牌"};top.addView(bottom,LinearLayout.LayoutParams(dp(79),-1))
-        lastLabel=text("",16f).apply{gravity=Gravity.CENTER};center.addView(lastLabel,LinearLayout.LayoutParams(-1,dp(20)))
+        lastLabel=text("",16f).apply{gravity=Gravity.CENTER;maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(10,16,1,android.util.TypedValue.COMPLEX_UNIT_SP)};center.addView(lastLabel,LinearLayout.LayoutParams(-1,dp(20)))
         last=CardStrip(this,art);center.addView(last,LinearLayout.LayoutParams(-1,0,1f))
-        val right=text("",19f).apply{setPadding(dp(4),dp(6),dp(4),dp(6));setLineSpacing(dp(3).toFloat(),1f);setAutoSizeTextTypeUniformWithConfiguration(12,19,1,android.util.TypedValue.COMPLEX_UNIT_SP)}
+        val right=OpponentPanel(this)
         people.add(right);table.addView(right,LinearLayout.LayoutParams(dp(133),-1))
         info=text("",17f).apply{gravity=Gravity.CENTER_VERTICAL;setSingleLine();setAutoSizeTextTypeUniformWithConfiguration(14,17,1,android.util.TypedValue.COMPLEX_UNIT_SP)};root.addView(info,LinearLayout.LayoutParams(-1,dp(26)))
         hand=HandLayout(this).apply{contentDescription="我的手牌，点击选择，再点出牌";setPadding(0,dp(4),0,dp(4))};root.addView(hand,LinearLayout.LayoutParams(-1,0,1.55f))
-        selection=text("",17f,Color.rgb(255,240,196));root.addView(selection,LinearLayout.LayoutParams(-1,dp(26)))
+        selection=text("",17f,Color.rgb(255,240,196)).apply{maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(12,17,1,android.util.TypedValue.COMPLEX_UNIT_SP)};root.addView(selection,LinearLayout.LayoutParams(-1,dp(26)))
         actions=LinearLayout(this).apply{gravity=Gravity.CENTER};root.addView(actions,LinearLayout.LayoutParams(-1,dp(54)))
     }
     private fun addAction(label:String,primary:Boolean=false,enabled:Boolean=true,action:()->Unit):Button {
@@ -98,7 +98,7 @@ class MainActivity: Activity() {
     private fun render(){
         stakes.text="${levels[game.level]}  ·  底分 ${if(game.highBid>0)game.highBid else "—"}  ·  ${game.multiplier} 倍"
         for(p in 1..2){val v=people[p-1];val role=if(game.landlord<0)"待定" else if(game.landlord==p)"地主" else "农民"
-            v.text="${names[p]} · $role\n剩 ${game.hands[p].size} 张\n${game.status[p]}"
+            v.bind(names[p],role,game.hands[p].size,game.status[p])
             v.background=background(Color.rgb(23,59,39),if(game.turn==p&&game.phase!="over")gold else Color.rgb(88,126,93))
         }
         bottom.show(if(game.landlord<0)listOf(54,54,54) else game.bottom)

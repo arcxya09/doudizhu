@@ -15,7 +15,7 @@ for size in compact large largefont; do
   if [ "$size" = largefont ]; then adb shell settings put system font_scale 1.3; fi
   adb shell am force-stop com.arcxya.doudizhu
   adb shell am instrument -w -r com.arcxya.doudizhu.test/androidx.test.runner.AndroidJUnitRunner | tee "device-results/$size-tests.txt"
-  if ! grep -q 'OK (1 test)' "device-results/$size-tests.txt"; then exit 1; fi
+  if ! grep -q 'OK (1 test)' "device-results/$size-tests.txt"; then adb exec-out screencap -p > "device-results/native-$size-failure.png"; exit 1; fi
   adb pull /sdcard/Android/data/com.arcxya.doudizhu/files/screenshots/native-table.png "device-results/native-$size.png"
 done
 adb logcat -d -s AndroidRuntime:E > device-results/crashes.txt

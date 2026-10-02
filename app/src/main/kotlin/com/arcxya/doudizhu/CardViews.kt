@@ -62,3 +62,14 @@ class CardStrip(context: Context,private val art: CardArt): ViewGroup(context) {
     override fun onMeasure(ws:Int,hs:Int){val w=MeasureSpec.getSize(ws);val h=MeasureSpec.getSize(hs);setMeasuredDimension(w,h);val cw=min((h*.69f).toInt(),w/childCount.coerceAtLeast(1));for(i in 0 until childCount)getChildAt(i).measure(MeasureSpec.makeMeasureSpec(cw,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY))}
     override fun onLayout(c:Boolean,l:Int,t:Int,r:Int,b:Int){if(childCount==0)return;val cw=getChildAt(0).measuredWidth;val start=(width-cw*childCount)/2;for(i in 0 until childCount)getChildAt(i).layout(start+i*cw,0,start+(i+1)*cw,height)}
 }
+
+/** Separate measured rows avoid multiline clipping with large system font settings. */
+class OpponentPanel(context: Context): android.widget.LinearLayout(context) {
+    private val rows=(0..2).map { index -> android.widget.TextView(context).apply {
+        tag="opponent-text";gravity=android.view.Gravity.CENTER;includeFontPadding=false;maxLines=1
+        setTextColor(if(index==2)Color.rgb(255,221,143) else Color.WHITE)
+        setAutoSizeTextTypeUniformWithConfiguration(10,if(index==1)22 else 19,1,android.util.TypedValue.COMPLEX_UNIT_SP)
+    } }
+    init {orientation=VERTICAL;val pad=(4*resources.displayMetrics.density).toInt();setPadding(pad,pad,pad,pad);rows.forEach{addView(it,LayoutParams(-1,0,1f))}}
+    fun bind(name:String,role:String,count:Int,status:String){rows[0].text="$name · $role";rows[1].text="剩 $count 张";rows[2].text=status}
+}
