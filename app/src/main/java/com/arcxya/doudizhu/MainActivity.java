@@ -34,7 +34,7 @@ public final class MainActivity extends Activity {
                 String url = request.getUrl().toString();
                 if (url.startsWith(ORIGIN)) {
                     String path = url.substring(ORIGIN.length());
-                    if (path.equals("index.html") || path.equals("style.css") || path.equals("engine.js") || path.equals("app.js")) {
+                    if (path.equals("index.html") || path.equals("style.css") || path.equals("engine.js") || path.equals("app.js") || path.equals("audio.js")) {
                         String mime = path.endsWith("html") ? "text/html" : path.endsWith("css") ? "text/css" : "application/javascript";
                         try { return new WebResourceResponse(mime, "UTF-8", getAssets().open(path)); }
                         catch (IOException ignored) { }

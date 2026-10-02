@@ -4,7 +4,7 @@
 
 ## 安装
 
-Android 8.0 及以上，建议系统 WebView 100 及以上。优先从 [Releases](https://github.com/arcxya09/doudizhu/releases) 下载 `doudizhu-1.0.0.apk` 直接安装。也可到 [Actions](https://github.com/arcxya09/doudizhu/actions/workflows/android.yml) 打开最近一次成功运行，在 Artifacts 下载 `doudizhu-1.0.0-debug-apk`，解压后安装 `app-debug.apk`。这是开发测试签名安装包；首次安装需允许来源应用安装 APK。GitHub 下载构建产物可能需要登录。
+Android 8.0 及以上，建议系统 WebView 100 及以上。优先从 [Releases](https://github.com/arcxya09/doudizhu/releases) 下载 `doudizhu-1.1.0.apk` 直接安装。也可到 [Actions](https://github.com/arcxya09/doudizhu/actions/workflows/android.yml) 打开最近一次成功运行，在 Artifacts 下载 `doudizhu-1.1.0-debug-apk`，解压后安装 `app-debug.apk`。这是开发测试签名安装包；首次安装需允许来源应用安装 APK。GitHub 下载构建产物可能需要登录。
 
 应用运行不需要网络。Android Manifest 不申请任何权限；WebView 禁止网络加载，只通过本地资源拦截器读取随 APK 打包的 HTML、CSS 和 JavaScript，不含远程字体、分析 SDK 或联网服务。
 
@@ -16,7 +16,7 @@ Android 8.0 及以上，建议系统 WebView 100 及以上。优先从 [Releases
 - 普通：按剩余手牌结构选择出牌，保留大牌和炸弹，为农民队友让牌。
 - 困难：增加拆炸弹代价、对手少牌时的拦截以及队友接牌考虑。属于启发式 AI，不是专业竞技级搜索引擎。三档均只使用自己的手牌、公开出牌与各家剩余数量，不偷看暗牌。
 - 点选手牌、提示、重选、重新开局；自动保存当前牌局和本机战绩。
-- 自适应横竖屏；切换到后台暂停电脑出牌。
+- 固定横屏，两排实体风格大牌；切换到后台暂停电脑出牌和声音。
 
 ## 规则约定
 
@@ -49,7 +49,7 @@ gradle :app:assembleDebug :app:lintDebug
 
 ## 验证范围
 
-已通过规则及 AI 自动测试，以及 Chromium 手机尺寸下的选牌、提示出牌、续局、横屏操作区、难度设置与结算去重检查。CI 会编译 APK 并运行 Android lint。尚未完成 Android 真机体验验收，建议安装后检查：飞行模式连续对局、切后台恢复、杀进程恢复、旋转屏幕、叫分及全部牌型、提示与手动出牌。
+已通过规则及 AI 自动测试，以及 Chromium 手机尺寸下的选牌、提示出牌、续局、横屏操作区、难度设置与结算去重检查。CI 会编译 APK 并运行 Android lint。尚未完成 Android 真机体验验收，建议安装后检查：飞行模式连续对局、切后台恢复、杀进程恢复、横屏显示、叫分及全部牌型、提示与手动出牌。
 
 界面冒烟测试（开发环境，可选）：
 
@@ -60,3 +60,9 @@ node tests/ui-smoke.cjs
 ```
 
 已有 Chromium 可设置 `CHROMIUM_PATH` 指向可执行文件。此依赖仅用于开发测试，不会打包进 APK。
+
+## v1.1.0 易用性更新
+
+固定横屏（支持左右翻转）；两排手牌、加大高对比度文字和按钮、选牌勾号、无效出牌禁用。默认电脑每 1.8 秒行动，可选 2.8 秒慢速或 1 秒正常速度，玩家不设时限。
+
+背景音乐为本机 Web Audio 原创合成循环旋律，音效覆盖选牌、出牌、不出、炸弹、轮到玩家和胜负，无外部音频文件和联网需求。首次触摸后启用，切后台暂停；音乐、音效、音量可分别控制并保存。
