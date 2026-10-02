@@ -18,6 +18,16 @@ for size in compact large largefont; do
     adb shell wm density 320
   fi
   if [ "$size" = largefont ]; then adb shell settings put system font_scale 1.3; fi
+  # Reboot after changing display metrics: emulator input coordinates otherwise
+  # retain the previous resolution even when the app has already relaid out.
+  adb reboot
+  adb wait-for-device
+  for attempt in $(seq 1 90); do
+    if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; then break; fi
+    sleep 2
+  done
+  adb shell input keyevent KEYCODE_WAKEUP
+  adb shell wm dismiss-keyguard
   adb shell am force-stop com.arcxya.doudizhu
   adb shell am instrument -w -r com.arcxya.doudizhu.test/androidx.test.runner.AndroidJUnitRunner | tee "device-results/$size-tests.txt"
   if ! grep -q 'OK (1 test)' "device-results/$size-tests.txt"; then adb exec-out screencap -p > "device-results/native-$size-failure.png"; exit 1; fi
