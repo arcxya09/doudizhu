@@ -4,7 +4,7 @@
 
 ## 安装
 
-Android 8.0 及以上。到 [Actions](https://github.com/arcxya09/doudizhu/actions/workflows/android.yml) 打开最近一次成功运行，在 Artifacts 下载 `doudizhu-1.0.0-debug-apk`，解压后安装 `app-debug.apk`。这是开发测试签名安装包；首次安装需允许来源应用安装 APK。GitHub 下载构建产物可能需要登录。
+Android 8.0 及以上，建议系统 WebView 100 及以上。优先从 [Releases](https://github.com/arcxya09/doudizhu/releases) 下载 `doudizhu-1.0.0.apk` 直接安装。也可到 [Actions](https://github.com/arcxya09/doudizhu/actions/workflows/android.yml) 打开最近一次成功运行，在 Artifacts 下载 `doudizhu-1.0.0-debug-apk`，解压后安装 `app-debug.apk`。这是开发测试签名安装包；首次安装需允许来源应用安装 APK。GitHub 下载构建产物可能需要登录。
 
 应用运行不需要网络。Android Manifest 不申请任何权限；WebView 禁止网络加载，只通过本地资源拦截器读取随 APK 打包的 HTML、CSS 和 JavaScript，不含远程字体、分析 SDK 或联网服务。
 
@@ -49,4 +49,14 @@ gradle :app:assembleDebug :app:lintDebug
 
 ## 验证范围
 
-已在开发环境执行规则及 AI 自动测试。CI 会编译 APK 并运行 Android lint。尚未完成 Android 真机体验验收，建议安装后检查：飞行模式连续对局、切后台恢复、杀进程恢复、旋转屏幕、叫分及全部牌型、提示与手动出牌。
+已通过规则及 AI 自动测试，以及 Chromium 手机尺寸下的选牌、提示出牌、续局、横屏操作区、难度设置与结算去重检查。CI 会编译 APK 并运行 Android lint。尚未完成 Android 真机体验验收，建议安装后检查：飞行模式连续对局、切后台恢复、杀进程恢复、旋转屏幕、叫分及全部牌型、提示与手动出牌。
+
+界面冒烟测试（开发环境，可选）：
+
+```sh
+npm install --no-save playwright
+npx playwright install chromium
+node tests/ui-smoke.cjs
+```
+
+已有 Chromium 可设置 `CHROMIUM_PATH` 指向可执行文件。此依赖仅用于开发测试，不会打包进 APK。
