@@ -60,7 +60,7 @@ class MainActivity: Activity() {
         restore();art=CardArt(this);audio=AudioEngine(this);buildLayout();render()
     }
     @Suppress("DEPRECATION")
-    private fun immersive(){window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_STABLE}
+    private fun immersive(){window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION}
     override fun onWindowFocusChanged(hasFocus:Boolean){super.onWindowFocusChanged(hasFocus);if(hasFocus)immersive()}
     private fun buildLayout(){
         val root=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(3),dp(12),dp(3));background=GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(Color.rgb(25,72,49),Color.rgb(12,42,30)))}
@@ -73,7 +73,7 @@ class MainActivity: Activity() {
         val options=button("声音 / 设置"){showSettings()};options.textSize=17f;header.addView(options,LinearLayout.LayoutParams(dp(124),dp(38)))
         table=LinearLayout(this).apply {gravity=Gravity.CENTER_VERTICAL}
         root.addView(table,LinearLayout.LayoutParams(-1,0,1f))
-        val left=text("",19f).apply{setPadding(dp(4),dp(6),dp(4),dp(6));setLineSpacing(dp(3).toFloat(),1f)}
+        val left=text("",19f).apply{setPadding(dp(4),dp(6),dp(4),dp(6));setLineSpacing(dp(3).toFloat(),1f);setAutoSizeTextTypeUniformWithConfiguration(12,19,1,android.util.TypedValue.COMPLEX_UNIT_SP)}
         people.add(left);table.addView(left,LinearLayout.LayoutParams(dp(133),-1))
         val center=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(8),0,dp(8),0)}
         table.addView(center,LinearLayout.LayoutParams(0,-1,1f))
@@ -83,9 +83,9 @@ class MainActivity: Activity() {
         bottom=CardStrip(this,art).apply {contentDescription="地主底牌"};top.addView(bottom,LinearLayout.LayoutParams(dp(79),-1))
         lastLabel=text("",16f).apply{gravity=Gravity.CENTER};center.addView(lastLabel,LinearLayout.LayoutParams(-1,dp(20)))
         last=CardStrip(this,art);center.addView(last,LinearLayout.LayoutParams(-1,0,1f))
-        val right=text("",19f).apply{setPadding(dp(4),dp(6),dp(4),dp(6));setLineSpacing(dp(3).toFloat(),1f)}
+        val right=text("",19f).apply{setPadding(dp(4),dp(6),dp(4),dp(6));setLineSpacing(dp(3).toFloat(),1f);setAutoSizeTextTypeUniformWithConfiguration(12,19,1,android.util.TypedValue.COMPLEX_UNIT_SP)}
         people.add(right);table.addView(right,LinearLayout.LayoutParams(dp(133),-1))
-        info=text("",17f).apply{gravity=Gravity.CENTER_VERTICAL;setSingleLine()};root.addView(info,LinearLayout.LayoutParams(-1,dp(26)))
+        info=text("",17f).apply{gravity=Gravity.CENTER_VERTICAL;setSingleLine();setAutoSizeTextTypeUniformWithConfiguration(14,17,1,android.util.TypedValue.COMPLEX_UNIT_SP)};root.addView(info,LinearLayout.LayoutParams(-1,dp(26)))
         hand=HandLayout(this).apply{contentDescription="我的手牌，点击选择，再点出牌";setPadding(0,dp(4),0,dp(4))};root.addView(hand,LinearLayout.LayoutParams(-1,0,1.55f))
         selection=text("",17f,Color.rgb(255,240,196));root.addView(selection,LinearLayout.LayoutParams(-1,dp(26)))
         actions=LinearLayout(this).apply{gravity=Gravity.CENTER};root.addView(actions,LinearLayout.LayoutParams(-1,dp(54)))
@@ -175,8 +175,9 @@ class MainActivity: Activity() {
         listOf("正常","舒缓","更慢").forEachIndexed{i,label->speedGroup.addView(RadioButton(this).apply{id=200+i;text=label;textSize=18f;setTextColor(Color.WHITE);minHeight=dp(48)})};speedGroup.check(200+speeds.indexOf(speed));speedGroup.setOnCheckedChangeListener{_,id->speed=speeds[id-200];settings.edit().putLong("speed",speed).apply()};content.addView(speedGroup)
         content.addView(text("完全离线 · 牌局自动保存\n两家连续不出后，上一家自由出牌。\n顺子、连对、飞机主体不含 2 和王。\n炸弹、王炸、春天均翻倍。",17f).apply{setPadding(0,dp(12),0,dp(12))})
         val scroll=ScrollView(this).apply{addView(content)}
-        val dialog=AlertDialog.Builder(this).setTitle("声音与牌桌设置").setView(scroll).setPositiveButton("返回牌局",null).setNeutralButton("重新开局"){_,_->confirmRestart()}.create()
-        dialog.setOnDismissListener{modal=false;schedule()};dialog.show()
+        var restartAfterDismiss=false
+        val dialog=AlertDialog.Builder(this).setTitle("声音与牌桌设置").setView(scroll).setPositiveButton("返回牌局",null).setNeutralButton("重新开局"){_,_->restartAfterDismiss=true}.create()
+        dialog.setOnDismissListener{if(restartAfterDismiss)confirmRestart() else {modal=false;schedule()}};dialog.show()
     }
     private fun confirmRestart(){modal=true;handler.removeCallbacksAndMessages(null);AlertDialog.Builder(this).setTitle("重新发牌？").setMessage("当前牌局不计入战绩。").setPositiveButton("重新开局"){_,_->fresh()}.setNegativeButton("继续本局",null).create().apply{setOnDismissListener{modal=false;schedule()};show()}}
     private fun restore(){

@@ -6,6 +6,7 @@ import android.graphics.Rect
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
@@ -25,8 +26,9 @@ class NativeUiTest {
         assertEquals(20,activity.hand.childCount)
         val hitBoxes=mutableListOf<Rect>()
         inst.runOnMainSync{
-            for(i in 0 until activity.hand.childCount){val v=activity.hand.getChildAt(i);val rect=Rect();assertTrue(v.getGlobalVisibleRect(rect));assertEquals(v.width,rect.width());assertEquals(v.height,rect.height());assertTrue(v.width>=48*context.resources.displayMetrics.density-1);hitBoxes.forEach{assertFalse("Cards overlap",Rect.intersects(it,rect))};hitBoxes.add(rect)}
+            for(i in 0 until activity.hand.childCount){val v=activity.hand.getChildAt(i);val rect=Rect();assertTrue(v.getGlobalVisibleRect(rect));assertEquals(v.width,rect.width());assertEquals(v.height,rect.height());assertTrue(v.width>=48*context.resources.displayMetrics.density-1);assertTrue(v.height>=48*context.resources.displayMetrics.density-1);hitBoxes.forEach{assertFalse("Cards overlap",Rect.intersects(it,rect))};hitBoxes.add(rect)}
             val actionRect=Rect();activity.actions.getGlobalVisibleRect(actionRect);assertTrue("Controls clipped",actionRect.bottom<=decor.height)
+            for(v in all(decor).filterIsInstance<TextView>().filter{it.text.contains("剩 ")}) { assertTrue("Opponent status clipped",v.layout.getLineBottom(v.lineCount-1)<=v.height-v.compoundPaddingTop-v.compoundPaddingBottom) }
             val buttons=all(decor).filterIsInstance<Button>();assertFalse(buttons.first{it.text=="出牌"}.isEnabled)
         }
         val dir=File(context.getExternalFilesDir(null),"screenshots");dir.mkdirs()

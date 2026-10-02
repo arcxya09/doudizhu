@@ -9,7 +9,7 @@ import kotlin.math.min
 
 class CardArt(context: Context) {
     val atlas: Bitmap = context.assets.open("cards.webp").use { BitmapFactory.decodeStream(it) }
-    fun source(card: Int) = Rect(card%9*160,card/9*232,card%9*160+160,card/9*232+232)
+    fun source(card: Int) = Rect(card%9*160,card/9*240,card%9*160+160,card/9*240+240)
 }
 class CardFace(context: Context, private val art: CardArt, val card: Int, private val largeIndex: Boolean = false): View(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
@@ -18,23 +18,12 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
     init { contentDescription=if(card==54) "未公开底牌" else Rules.cardName(card);isFocusable=largeIndex }
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val border=dp(3f); val h=min(height-border*2,(width-border*2)*232f/160f);val w=h*160/232
+        val border=dp(3f); val h=min(height-border*2,(width-border*2)*240f/160f);val w=h*160/240
         val box=RectF((width-w)/2,(height-h)/2,(width+w)/2,(height+h)/2)
         paint.color=if(isSelected) Color.rgb(255,209,75) else Color.rgb(249,243,224)
         canvas.drawRoundRect(RectF(box.left-border,box.top-border,box.right+border,box.bottom+border),dp(5f),dp(5f),paint)
         paint.color=Color.WHITE;canvas.drawRoundRect(box,dp(4f),dp(4f),paint)
         canvas.drawBitmap(art.atlas,art.source(card),box,paint)
-        if(largeIndex && card<54) {
-            val rank=Rules.rank(card);val red=(card<52 && card%4 in listOf(1,3))||card==53
-            val size=min(dp(20f),h*.28f)
-            paint.color=Color.WHITE;canvas.drawRect(box.left,box.top,box.left+size*1.3f,box.top+size*1.8f,paint)
-            paint.color=if(red) Color.rgb(186,24,30) else Color.rgb(20,26,31)
-            paint.typeface=Typeface.create(Typeface.SANS_SERIF,Typeface.BOLD);paint.textSize=size;paint.textAlign=Paint.Align.LEFT
-            val label=when(rank){11->"J";12->"Q";13->"K";14->"A";15->"2";16->"小";17->"大";else->rank.toString()}
-            canvas.drawText(label,box.left+dp(1f),box.top+size,paint)
-            paint.textSize=size*.85f
-            canvas.drawText(if(rank>=16)"王" else listOf("♠","♥","♣","♦")[card%4],box.left+dp(1f),box.top+size*1.78f,paint)
-        }
         if(isSelected) {
             paint.color=Color.rgb(32,112,48);canvas.drawCircle(box.right-dp(8f),box.top+dp(9f),dp(10f),paint)
             paint.color=Color.WHITE;paint.typeface=Typeface.DEFAULT_BOLD;paint.textSize=dp(15f);paint.textAlign=Paint.Align.CENTER

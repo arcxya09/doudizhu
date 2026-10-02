@@ -1,8 +1,8 @@
 # 闲来斗地主 — Kotlin 原生 Android 版
 
-v2.0.0 将旧 WebView 实现完整替换为 Kotlin 原生应用。无 HTML/CSS/JavaScript，无浏览器内核，无联网权限，无账号、广告或内购。
+v2.0.1 将旧 WebView 实现完整替换为 Kotlin 原生应用。无 HTML/CSS/JavaScript，无浏览器内核，无联网权限，无账号、广告或内购。
 
-[下载安装包](https://github.com/arcxya09/doudizhu/releases/tag/v2.0.0) · Android 8.0 及以上。
+[下载安装包](https://github.com/arcxya09/doudizhu/releases/tag/v2.0.1) · Android 8.0 及以上。
 
 ## 实现
 
@@ -38,4 +38,4 @@ Kotlin 单元测试覆盖全部牌型、穷举合法出牌对照、连续不出�
 
 ## 牌面素材
 
-来自 [hayeah/playing-cards-assets](https://github.com/hayeah/playing-cards-assets)，其 README 将牌面来源注明为 public-domain vector-playing-cards。保留仓库 MIT 许可，见 `app/src/main/assets/CARD_ART_LICENSE.txt`。图集按引擎编号排列，每格 160×232 像素，9 列；0—51 为 3 到 2，花色依次黑桃/红桃/梅花/方块，52 小王、53 大王、54 牌背。放大牌角由原生 Canvas 绘制。
+采用 [saulspatz/SVGCards](https://github.com/saulspatz/SVGCards) 的公共领域 Jumbo Index 两色大牌角牌面。直接从 SVG 转为本地 WebP 贴图，保留完整图案，运行时不覆盖或拼接牌角。许可说明见 `app/src/main/assets/CARD_ART_LICENSE.txt`。每格 160×240 像素、9 列；0—51 为 3 到 2，花色依次黑桃/红桃/梅花/方块，52 小王、53 大王、54 牌背。
