@@ -2,6 +2,8 @@
 set -euo pipefail
 mkdir -p device-results
 adb shell settings put secure immersive_mode_confirmations confirmed
+adb shell settings put system accelerometer_rotation 0
+adb shell settings put system user_rotation 0
 adb shell input keyevent KEYCODE_WAKEUP
 adb shell wm dismiss-keyguard
 adb install -r app/build/outputs/apk/debug/app-debug.apk
@@ -9,10 +11,10 @@ adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 for size in compact large largefont; do
   adb shell settings put system font_scale 1.0
   if [ "$size" = compact ] || [ "$size" = largefont ]; then
-    adb shell wm size 720x1280
+    adb shell wm size 1280x720
     adb shell wm density 320
   else
-    adb shell wm size 1080x1920
+    adb shell wm size 1920x1080
     adb shell wm density 320
   fi
   if [ "$size" = largefont ]; then adb shell settings put system font_scale 1.3; fi

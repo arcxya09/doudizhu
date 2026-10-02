@@ -22,9 +22,10 @@ class NativeUiTest {
     private fun all(v:View):List<View> = listOf(v)+(if(v is ViewGroup)(0 until v.childCount).flatMap{all(v.getChildAt(it))}else emptyList())
     @Test fun nativeLandscapeCardsAndPlay(){
         val inst=InstrumentationRegistry.getInstrumentation();val context=inst.targetContext
+        val device=UiDevice.getInstance(inst)
+        device.setOrientationNatural();device.waitForIdle()
         var activity=inst.startActivitySync(Intent(context,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
         inst.runOnMainSync{activity.testStart()};inst.waitForIdleSync()
-        val device=UiDevice.getInstance(inst)
         device.wakeUp()
         assertTrue("App must be foreground",device.wait(Until.hasObject(By.pkg(context.packageName)),10000))
         device.findObject(By.text("GOT IT"))?.click()
@@ -44,6 +45,7 @@ class NativeUiTest {
         }
         val dir=File(context.getExternalFilesDir(null),"screenshots");dir.mkdirs()
         assertTrue(device.takeScreenshot(File(dir,"native-table.png")))
+        android.graphics.BitmapFactory.decodeFile(File(dir,"native-table.png").path).also{assertTrue("Screenshot orientation",it.width>it.height);it.recycle()}
         device.findObject(By.text("提示")).click();device.waitForIdle()
         assertTrue((0 until activity.hand.childCount).any{activity.hand.getChildAt(it).isSelected})
         device.findObject(By.text("出牌")).click();device.waitForIdle()
