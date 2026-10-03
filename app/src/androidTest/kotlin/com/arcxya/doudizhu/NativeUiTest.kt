@@ -127,7 +127,7 @@ class NativeUiTest {
         inst.runOnMainSync {
             val decor = activity.window.decorView
             assertTrue("No browser view", all(decor).none { it.javaClass.name.contains("WebView") })
-            val hitBoxes = mutableListOf<Rect>()
+            var previousTop = -1
             for (i in 0 until activity.hand.childCount) {
                 val v = activity.hand.getChildAt(i)
                 val rect = Rect()
@@ -136,8 +136,11 @@ class NativeUiTest {
                 assertEquals("Card height visible", v.height, rect.height())
                 assertTrue("Card touch width", v.width >= 48 * context.resources.displayMetrics.density - 1)
                 assertTrue("Card touch height", v.height >= 48 * context.resources.displayMetrics.density - 1)
-                hitBoxes.forEach { assertFalse("Cards overlap", Rect.intersects(it, rect)) }
-                hitBoxes.add(rect)
+                assertTrue("Large hand cards", v.height >= 100 * context.resources.displayMetrics.density)
+                if(previousTop>=0)assertEquals("Single row",previousTop,v.top)
+                previousTop=v.top
+                assertTrue("Readable exposed index",activity.hand.exposedBounds(i).width() >= 24 * context.resources.displayMetrics.density - 1)
+                if(i>0)assertTrue("Cards overlap", v.left < activity.hand.getChildAt(i-1).right)
             }
             val actionRect = Rect()
             assertTrue(activity.actions.getGlobalVisibleRect(actionRect))
@@ -150,6 +153,21 @@ class NativeUiTest {
         }
         val dir = File(context.getExternalFilesDir(null), "screenshots").apply { mkdirs() }
         captureGame(inst, device, activity, File(dir, "native-table.png"))
+        fun point(index:Int):Pair<Int,Int> = onMain(inst){
+            val origin=IntArray(2);activity.hand.getLocationOnScreen(origin)
+            val bounds=activity.hand.exposedBounds(index)
+            (origin[0]+bounds.centerX()) to (origin[1]+bounds.centerY())
+        }
+        for(index in listOf(0,19)){
+            val p=point(index);assertTrue(device.click(p.first,p.second))
+            await("Tap exposed card $index selects it"){onMain(inst){activity.hand.getChildAt(index).isSelected}}
+        }
+        tap(inst,device,activity,"重选")
+        val from=point(0);val to=point(4)
+        assertTrue(device.swipe(from.first,from.second,to.first,to.second,24))
+        await("Swipe selects exactly five cards"){onMain(inst){(0 until 20).all{activity.hand.getChildAt(it).isSelected == (it<5)}}}
+        captureGame(inst,device,activity,File(dir,"native-selected.png"))
+        tap(inst,device,activity,"重选")
         tap(inst, device, activity, "提示")
         await("Real Hint tap selects cards and enables Play", 5000) {
             onMain(inst) {
@@ -161,12 +179,19 @@ class NativeUiTest {
         await("Real Play tap removes cards and advances turn", 5000) {
             onMain(inst) { activity.game.hands[0].size < 20 && activity.game.turn != 0 }
         }
+        captureGame(inst,device,activity,File(dir,"native-played.png"))
         val remaining = onMain(inst) { activity.game.hands[0].size }
         inst.runOnMainSync { activity.finish() }
         inst.waitForIdleSync()
         activity = inst.startActivitySync(Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
         assertEquals("Saved hand restored", remaining, onMain(inst) { activity.game.hands[0].size })
+        inst.runOnMainSync {
+            activity.testStart()
+            activity.testPlayedCards((0..4).flatMap{r->(0..2).map{r*4+it}}+(5..9).map{it*4})
+        }
+        inst.waitForIdleSync()
+        captureGame(inst,device,activity,File(dir,"native-long-play.png"))
         inst.runOnMainSync { activity.finish() }
         device.unfreezeRotation()
     }

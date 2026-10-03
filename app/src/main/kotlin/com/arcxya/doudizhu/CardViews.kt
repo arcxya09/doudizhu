@@ -2,67 +2,136 @@ package com.arcxya.doudizhu
 
 import android.content.Context
 import android.graphics.*
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.accessibility.AccessibilityNodeInfo
 import kotlin.math.min
+import kotlin.math.max
+import kotlin.math.abs
 
 class CardArt(context: Context) {
     val atlas: Bitmap = context.assets.open("cards.webp").use { BitmapFactory.decodeStream(it) }
     fun source(card: Int) = Rect(card%9*160,card/9*240,card%9*160+160,card/9*240+240)
 }
+/** Jumbo corner indexes occupy a clean margin; original deck artwork remains on the face. */
 class CardFace(context: Context, private val art: CardArt, val card: Int, private val largeIndex: Boolean = false): View(context) {
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private val density = resources.displayMetrics.density
-    private fun dp(v: Float)=v*density
-    init { contentDescription=if(card==54) "未公开底牌" else Rules.cardName(card);isFocusable=largeIndex }
-    override fun onDraw(canvas: Canvas) {
-        super.onDraw(canvas)
-        val border=dp(3f);val lift=if(largeIndex)dp(6f) else 0f
-        val h=min(height-border*2-lift,(width-border*2)*240f/160f);val w=h*160/240
-        val top=(height-h+lift)/2-if(isSelected)lift else 0f
+    private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private fun dp(v:Float)=v*resources.displayMetrics.density
+    var indexWidth=0f
+    init {contentDescription=if(card==54) "未公开底牌" else Rules.cardName(card);isFocusable=largeIndex}
+    override fun onDraw(canvas:Canvas) {
+        val edge=dp(2f);val lift=if(largeIndex)dp(12f) else 0f
+        val h=min(height-edge*2-lift,(width-edge*2)*1.5f)
+        val w=h/1.5f;val top=height-edge-h-if(isSelected)lift else 0f
         val box=RectF((width-w)/2,top,(width+w)/2,top+h)
-        paint.color=if(isSelected) Color.rgb(255,209,75) else Color.rgb(249,243,224)
-        canvas.drawRoundRect(RectF(box.left-border,box.top-border,box.right+border,box.bottom+border),dp(5f),dp(5f),paint)
-        paint.color=Color.WHITE;canvas.drawRoundRect(box,dp(4f),dp(4f),paint)
-        canvas.drawBitmap(art.atlas,art.source(card),box,paint)
-        if(isSelected) {
-            paint.color=Color.rgb(32,112,48);canvas.drawCircle(box.right-dp(8f),box.top+dp(9f),dp(10f),paint)
-            paint.color=Color.WHITE;paint.typeface=Typeface.DEFAULT_BOLD;paint.textSize=dp(15f);paint.textAlign=Paint.Align.CENTER
-            canvas.drawText("✓",box.right-dp(8f),box.top+dp(14f),paint)
-        }
+        paint.style=Paint.Style.FILL;paint.color=if(isSelected)Color.rgb(255,199,56) else Color.rgb(191,181,155)
+        canvas.drawRoundRect(RectF(box.left-edge,box.top-edge,box.right+edge,box.bottom+edge),dp(5f),dp(5f),paint)
+        paint.color=Color.rgb(255,253,242);canvas.drawRoundRect(box,dp(4f),dp(4f),paint)
+        if(card==54) {canvas.drawBitmap(art.atlas,art.source(card),box,paint);return}
+        val margin=min(if(indexWidth>0)indexWidth-dp(3f) else w*.42f,w*.48f).coerceAtLeast(dp(10f))
+        // Crop only the central illustration, so the original small corner indexes are not duplicated.
+        val src=art.source(card);src.inset(30,42)
+        val artBox=RectF(box.left+margin+dp(3f),box.top+h*.30f,box.right-dp(4f),box.bottom-dp(5f))
+        if(artBox.width()>0)canvas.drawBitmap(art.atlas,src,artBox,paint)
+        val red=card==53 || (card<52 && card%4 in listOf(1,3))
+        paint.color=if(red)Color.rgb(187,30,24) else Color.rgb(21,25,23)
+        paint.typeface=Typeface.create("serif",Typeface.BOLD);paint.textAlign=Paint.Align.CENTER
+        val x=box.left+margin/2+dp(1f)
+        val rank=if(card>=52)if(card==53)"大" else "小" else when(val r=card/4+3){11->"J";12->"Q";13->"K";14->"A";15->"2";else->r.toString()}
+        paint.textSize=min(h*.25f,dp(30f))
+        val available=margin-dp(2f)
+        if(paint.measureText(rank)>available)paint.textSize*=available/paint.measureText(rank)
+        val baseline=box.top+dp(3f)-paint.fontMetrics.ascent
+        canvas.drawText(rank,x,baseline,paint)
+        val symbol=if(card>=52)"王" else listOf("♠","♥","♣","♦")[card%4]
+        paint.textSize=min(h*.24f,margin*.95f)
+        canvas.drawText(symbol,x,baseline+paint.textSize*1.05f,paint)
+        if(isSelected){paint.color=Color.rgb(220,151,18);canvas.drawRect(box.left,box.bottom-dp(5f),box.right,box.bottom,paint)}
     }
-    override fun setSelected(selected: Boolean) { super.setSelected(selected);invalidate() }
-    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
+    override fun setSelected(selected:Boolean){super.setSelected(selected);invalidate()}
+    override fun onInitializeAccessibilityNodeInfo(info:AccessibilityNodeInfo){
         super.onInitializeAccessibilityNodeInfo(info);info.className="android.widget.CheckBox";info.isCheckable=largeIndex;info.isChecked=isSelected
     }
 }
-/** Two independently centered rows. Card images retain aspect ratio; hit boxes never overlap. */
-class HandLayout(context: Context): ViewGroup(context) {
-    override fun onMeasure(widthSpec: Int,heightSpec: Int) {
-        val w=MeasureSpec.getSize(widthSpec);val h=MeasureSpec.getSize(heightSpec)
-        setMeasuredDimension(w,h)
-        val rows=if(childCount>10)2 else 1
-        val rowHeight=(h-paddingTop-paddingBottom)/rows
-        val count=min(10,childCount).coerceAtLeast(1)
-        val cellWidth=min((w-paddingLeft-paddingRight)/count,(rowHeight*.78f).toInt().coerceAtLeast((48*resources.displayMetrics.density).toInt()))
-        for(i in 0 until childCount)getChildAt(i).measure(MeasureSpec.makeMeasureSpec(cellWidth,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(rowHeight,MeasureSpec.EXACTLY))
-    }
-    override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int) {
-        if(childCount==0)return
-        val rowCount=if(childCount>10)2 else 1
-        val rowHeight=(height-paddingTop-paddingBottom)/rowCount
-        for(i in 0 until childCount) {
-            val row=i/10;val cols=min(10,childCount-row*10);val child=getChildAt(i);val cw=child.measuredWidth
-            val x=(width-cols*cw)/2+(i%10)*cw;val y=paddingTop+row*rowHeight
-            child.layout(x,y,x+cw,y+rowHeight)
+/** One overlapping row. Touch selection follows the exposed index strips, in draw order. */
+class HandLayout(context:Context):ViewGroup(context) {
+    private var stride=0f;private var start=0f
+    private var downX=0f;private var downIndex=-1;private var lastIndex=-1;private var dragging=false
+    private var before=booleanArrayOf();private var selectRange=true
+    private val slop=android.view.ViewConfiguration.get(context).scaledTouchSlop
+    override fun onMeasure(ws:Int,hs:Int){
+        val w=MeasureSpec.getSize(ws);val h=MeasureSpec.getSize(hs);setMeasuredDimension(w,h)
+        val cw=min(((h-paddingTop-paddingBottom-16*resources.displayMetrics.density)/1.5f).toInt()+4,(w*.32f).toInt()).coerceAtLeast(1)
+        stride=if(childCount>1)min(cw*.70f,(w-paddingLeft-paddingRight-cw).toFloat()/(childCount-1)) else 0f
+        start=(w-cw-stride*(childCount-1).coerceAtLeast(0))/2f
+        for(i in 0 until childCount){
+            val v=getChildAt(i) as CardFace;v.indexWidth=if(childCount==1)cw*.42f else stride
+            v.measure(MeasureSpec.makeMeasureSpec(cw,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(h-paddingTop-paddingBottom,MeasureSpec.EXACTLY))
         }
     }
+    override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){
+        for(i in 0 until childCount){val v=getChildAt(i);val x=(start+i*stride).toInt();v.layout(x,paddingTop,x+v.measuredWidth,paddingTop+v.measuredHeight)}
+    }
+    internal fun exposedBounds(index:Int):Rect {
+        val v=getChildAt(index);return Rect(v.left,v.top,if(index<childCount-1)getChildAt(index+1).left else v.right,v.bottom)
+    }
+    private fun hit(x:Float,y:Float):Int {
+        if(y<paddingTop || y>height-paddingBottom)return -1
+        for(i in childCount-1 downTo 0){val v=getChildAt(i);if(x>=v.left&&x<v.right&&v.isEnabled)return i};return -1
+    }
+    override fun onInterceptTouchEvent(event:MotionEvent)=true
+    override fun onTouchEvent(event:MotionEvent):Boolean {
+        when(event.actionMasked){
+            MotionEvent.ACTION_DOWN->{
+                downIndex=hit(event.x,event.y);if(downIndex<0)return false
+                downX=event.x;lastIndex=downIndex;dragging=false
+                before=BooleanArray(childCount){getChildAt(it).isSelected};selectRange=!before[downIndex]
+                parent?.requestDisallowInterceptTouchEvent(true);return true
+            }
+            MotionEvent.ACTION_MOVE->{
+                if(downIndex<0)return false
+                val index=hit(event.x,event.y)
+                if(index>=0&&(dragging||abs(event.x-downX)>slop)){dragging=true;lastIndex=index;applyRange(index)}
+                return true
+            }
+            MotionEvent.ACTION_UP->{
+                if(downIndex<0)return false
+                if(!dragging){val index=hit(event.x,event.y);if(index==downIndex)getChildAt(index).performClick()} else applyRange(lastIndex)
+                downIndex=-1;parent?.requestDisallowInterceptTouchEvent(false);performClick();return true
+            }
+            MotionEvent.ACTION_CANCEL->{
+                if(dragging)for(i in 0 until min(childCount,before.size))if(getChildAt(i).isSelected!=before[i])getChildAt(i).performClick()
+                downIndex=-1;parent?.requestDisallowInterceptTouchEvent(false);return true
+            }
+        };return downIndex>=0
+    }
+    private fun applyRange(end:Int){
+        for(i in 0 until min(childCount,before.size)){
+            val desired=if(i in min(downIndex,end)..max(downIndex,end))selectRange else before[i]
+            if(getChildAt(i).isSelected!=desired)getChildAt(i).performClick()
+        }
+    }
+    override fun performClick():Boolean{super.performClick();return true}
 }
-class CardStrip(context: Context,private val art: CardArt): ViewGroup(context) {
-    fun show(cards:List<Int>) { removeAllViews();cards.forEach { addView(CardFace(context,art,it)) };requestLayout() }
-    override fun onMeasure(ws:Int,hs:Int){val w=MeasureSpec.getSize(ws);val h=MeasureSpec.getSize(hs);setMeasuredDimension(w,h);val cw=min((h*.69f).toInt(),w/childCount.coerceAtLeast(1));for(i in 0 until childCount)getChildAt(i).measure(MeasureSpec.makeMeasureSpec(cw,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY))}
-    override fun onLayout(c:Boolean,l:Int,t:Int,r:Int,b:Int){if(childCount==0)return;val cw=getChildAt(0).measuredWidth;val start=(width-cw*childCount)/2;for(i in 0 until childCount)getChildAt(i).layout(start+i*cw,0,start+(i+1)*cw,height)}
+/** Overlap to keep played cards large; very long combinations wrap before indexes become cramped. */
+class CardStrip(context:Context,private val art:CardArt):ViewGroup(context) {
+    private var columns=1;private var rowHeight=1;private var cardWidth=1;private var step=0f
+    fun show(cards:List<Int>){removeAllViews();cards.forEach{addView(CardFace(context,art,it))};requestLayout()}
+    override fun onMeasure(ws:Int,hs:Int){
+        val w=MeasureSpec.getSize(ws);val h=MeasureSpec.getSize(hs);setMeasuredDimension(w,h)
+        val d=resources.displayMetrics.density
+        columns=if(childCount>12 && h>=100*d) (childCount+1)/2 else childCount.coerceAtLeast(1)
+        val rows=if(childCount>columns)2 else 1;rowHeight=h/rows
+        cardWidth=min((rowHeight/1.5f).toInt(),(w/(1+(columns-1)*.38f)).toInt()).coerceAtLeast(1)
+        step=if(columns>1)min(cardWidth*.64f,(w-cardWidth).toFloat()/(columns-1)) else 0f
+        for(i in 0 until childCount){val v=getChildAt(i) as CardFace;v.indexWidth=if(columns==1)cardWidth*.42f else step
+            v.measure(MeasureSpec.makeMeasureSpec(cardWidth,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(rowHeight,MeasureSpec.EXACTLY))}
+    }
+    override fun onLayout(c:Boolean,l:Int,t:Int,r:Int,b:Int){
+        for(i in 0 until childCount){val row=i/columns;val col=i%columns;val count=min(columns,childCount-row*columns);val start=(width-cardWidth-step*(count-1))/2
+            val x=(start+col*step).toInt();getChildAt(i).layout(x,row*rowHeight,x+cardWidth,(row+1)*rowHeight)}
+    }
 }
 
 /** Separate measured rows avoid multiline clipping with large system font settings. */

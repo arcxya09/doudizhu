@@ -76,7 +76,7 @@ class MainActivity: Activity() {
         val root=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL;setPadding(dp(8),dp(4),dp(8),dp(6))}
         canvas.addView(root,FrameLayout.LayoutParams(-1,-1));setContentView(canvas)
         val header=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(dp(8),0,dp(4),0);background=background(0x9b153b2a.toInt(),0x5dbdc68f)}
-        root.addView(header,LinearLayout.LayoutParams(-1,dp(40)))
+        root.addView(header,LinearLayout.LayoutParams(-1,dp(38)))
         val title=text("闲来斗地主",22f,gold).apply{setTypeface(null,Typeface.BOLD);gravity=Gravity.CENTER_VERTICAL;maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(16,22,1,android.util.TypedValue.COMPLEX_UNIT_SP)}
         header.addView(title,LinearLayout.LayoutParams(dp(137),-1))
         stakes=text("",17f,Color.rgb(255,241,197)).apply{maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(12,17,1,android.util.TypedValue.COMPLEX_UNIT_SP)}
@@ -92,14 +92,14 @@ class MainActivity: Activity() {
         lastLabel=text("",16f,Color.rgb(255,240,206)).apply{maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(11,16,1,android.util.TypedValue.COMPLEX_UNIT_SP)}
         last=CardStrip(this,art).apply{contentDescription="上家打出的牌"}
         table=TableArena(this,left,right,notice,lastLabel,last)
-        root.addView(table,LinearLayout.LayoutParams(-1,0,.65f).apply{setMargins(0,dp(2),0,dp(2))})
-        actions=LinearLayout(this).apply{gravity=Gravity.CENTER};root.addView(actions,LinearLayout.LayoutParams(-1,dp(52)))
+        root.addView(table,LinearLayout.LayoutParams(-1,0,1f).apply{setMargins(0,dp(2),0,dp(2))})
+        actions=LinearLayout(this).apply{gravity=Gravity.CENTER};root.addView(actions,LinearLayout.LayoutParams(-1,dp(50)))
         selection=text("",17f,Color.rgb(255,241,202)).apply{maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(13,17,1,android.util.TypedValue.COMPLEX_UNIT_SP)}
-        root.addView(selection,LinearLayout.LayoutParams(-1,dp(22)))
+        root.addView(selection,LinearLayout.LayoutParams(-1,dp(18)))
         info=text("",16f,Color.rgb(255,237,178)).apply{setSingleLine();setAutoSizeTextTypeUniformWithConfiguration(12,16,1,android.util.TypedValue.COMPLEX_UNIT_SP);background=background(0x8f143a29.toInt())}
-        root.addView(info,LinearLayout.LayoutParams(-1,dp(20)).apply{setMargins(dp(22),dp(2),dp(22),0)})
+        root.addView(info,LinearLayout.LayoutParams(-1,dp(18)).apply{setMargins(dp(22),dp(2),dp(22),0)})
         hand=HandLayout(this).apply{contentDescription="我的手牌，点击选择，再点出牌";setPadding(0,dp(3),0,0)}
-        root.addView(hand,LinearLayout.LayoutParams(-1,0,1.3f))
+        root.addView(hand,LinearLayout.LayoutParams(-1,dp((resources.configuration.screenHeightDp*.35f).toInt().coerceIn(122,180))))
     }
     private fun addAction(label:String,primary:Boolean=false,enabled:Boolean=true,action:()->Unit):Button {
         val b=button(label,primary,action);buttonEnabled(b,enabled)
@@ -136,7 +136,7 @@ class MainActivity: Activity() {
     }
     private fun refreshSelection(){
         val m=Rules.classify(selected.toList());val valid=Rules.beats(m,game.last)
-        selection.text=if(selected.isEmpty())"点击手牌选中，再点“出牌” · 不知道出什么，可点“提示”" else "已选 ${selected.size} 张 · ${m?.kind?.title?:"牌型不完整"}${if(m!=null&&!valid)" · 压不过上家" else ""}"
+        selection.text=if(selected.isEmpty())"点选或横滑选牌，再点“出牌” · 可用“提示”" else "已选 ${selected.size} 张 · ${m?.kind?.title?:"牌型不完整"}${if(m!=null&&!valid)" · 压不过上家" else ""}"
         playButton?.let{buttonEnabled(it,selected.isNotEmpty()&&valid)}
     }
     private fun humanBid(n:Int){if(game.turn!=0||game.phase!="bid")return;game.bid(n);audio.cue("bid");advance()}
@@ -205,5 +205,6 @@ class MainActivity: Activity() {
     override fun onDestroy(){handler.removeCallbacksAndMessages(null);if(::audio.isInitialized)audio.release();super.onDestroy()}
     @Deprecated("Legacy Android back callback")
     override fun onBackPressed(){if(modal)return;modal=true;handler.removeCallbacksAndMessages(null);AlertDialog.Builder(this).setTitle("暂时离开牌桌？").setMessage("当前牌局已经保存，下次打开继续。").setPositiveButton("离开"){_,_->finish()}.setNegativeButton("继续玩",null).create().apply{setOnDismissListener{modal=false;schedule()};show()}}
+    internal fun testPlayedCards(cards:List<Int>){game.last=Rules.classify(cards);game.lastPlayer=1;game.turn=0;game.phase="play";render()}
     internal fun testStart(level:Int=1){handler.removeCallbacksAndMessages(null);game=Game.create(level,kotlin.random.Random(42));game.turn=0;game.bid(3);selected.clear();persist();render();running=false}
 }

@@ -64,7 +64,7 @@ class TableSeat(context:Context,person:Int):LinearLayout(context) {
     init {
         orientation=HORIZONTAL;gravity=android.view.Gravity.CENTER_VERTICAL
         setPadding(dp(3),dp(2),dp(3),dp(2))
-        addView(portrait,LayoutParams(dp(52),dp(56)))
+        addView(portrait,LayoutParams(dp(36),dp(48)))
         addView(details,LayoutParams(0,LayoutParams.MATCH_PARENT,1f))
     }
     fun bind(name:String,role:String,count:Int,status:String,active:Boolean) {
@@ -85,7 +85,7 @@ class TableArena(context:Context,private val left:TableSeat,private val right:Ta
     init { addView(left);addView(right);addView(turn);addView(playedLabel);addView(played) }
     override fun onMeasure(widthSpec:Int,heightSpec:Int) {
         val w=MeasureSpec.getSize(widthSpec);val h=MeasureSpec.getSize(heightSpec);setMeasuredDimension(w,h)
-        val seatWidth=min(dp(if(w/density>760)194 else 166),w/3)
+        val seatWidth=min(dp(if(w/density>760)166 else 124),w/3)
         val seatHeight=min(h,dp(94))
         val centerWidth=(w-seatWidth*2-dp(8)).coerceAtLeast(dp(150))
         fun measure(view:View,width:Int,height:Int)=view.measure(MeasureSpec.makeMeasureSpec(width.coerceAtLeast(1),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(height.coerceAtLeast(1),MeasureSpec.EXACTLY))
