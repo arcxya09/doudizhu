@@ -18,8 +18,10 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
     init { contentDescription=if(card==54) "未公开底牌" else Rules.cardName(card);isFocusable=largeIndex }
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val border=dp(3f); val h=min(height-border*2,(width-border*2)*240f/160f);val w=h*160/240
-        val box=RectF((width-w)/2,(height-h)/2,(width+w)/2,(height+h)/2)
+        val border=dp(3f);val lift=if(largeIndex)dp(6f) else 0f
+        val h=min(height-border*2-lift,(width-border*2)*240f/160f);val w=h*160/240
+        val top=(height-h+lift)/2-if(isSelected)lift else 0f
+        val box=RectF((width-w)/2,top,(width+w)/2,top+h)
         paint.color=if(isSelected) Color.rgb(255,209,75) else Color.rgb(249,243,224)
         canvas.drawRoundRect(RectF(box.left-border,box.top-border,box.right+border,box.bottom+border),dp(5f),dp(5f),paint)
         paint.color=Color.WHITE;canvas.drawRoundRect(box,dp(4f),dp(4f),paint)

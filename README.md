@@ -1,13 +1,14 @@
 # 闲来斗地主 — Kotlin 原生 Android 版
 
-v2.0.1 将旧 WebView 实现完整替换为 Kotlin 原生应用。无 HTML/CSS/JavaScript，无浏览器内核，无联网权限，无账号、广告或内购。
+v2.1.0 使用 Kotlin 原生风景牌桌：左右人物头像、顶部底牌、分座出牌区、大按钮和真实牌面贴图。无 HTML/CSS/JavaScript，无浏览器内核，无联网权限，无账号、广告或内购。
 
-[下载安装包](https://github.com/arcxya09/doudizhu/releases/tag/v2.0.1) · Android 8.0 及以上。
+[下载安装包](https://github.com/arcxya09/doudizhu/releases/tag/v2.1.0) · Android 8.0 及以上。
 
 ## 实现
 
 - `Rules.kt`：纯 Kotlin 规则、状态机和三个难度的人机；人机只接收己方手牌和公开信息，不读取对手暗牌。
 - `MainActivity.kt`：原生横屏沉浸式牌桌、系统按钮、设置、提示、战绩与 AtomicFile 存档。
+- `TableViews.kt`：原生 ViewGroup 测量牌桌区域，Canvas 绘制背景及人物贴图。
 - `CardViews.kt`：原生 View 绘制本地牌面贴图；ViewGroup 实际测量两排手牌，保持牌面比例与独立点击区域。
 - `AudioEngine.kt`：在本机生成原创 PCM WAV 音乐和音效，通过 MediaPlayer / SoundPool 播放，处理后台暂停与音频焦点。
 - `assets/cards.webp`：55 格牌面图集（54 张牌及牌背），附第三方素材许可。
@@ -35,6 +36,10 @@ gradle :app:testDebugUnitTest :app:assembleDebug :app:lintDebug
 Kotlin 单元测试覆盖全部牌型、穷举合法出牌对照、连续不出后的轮转、春天计分、农民配合及 180 局完整对局。CI 在 Android 模拟器上检查两种屏幕尺寸、横屏、无 WebView、20 张手牌可见且不重叠、点击区域、按钮可见、提示出牌和重启恢复；截图附在 Release。实体手机仍需试用验收。
 
 原生版采用独立存档，不迁移旧 WebView 数据。测试安装包使用 debug 签名，不同 CI 构建可能签名不同，覆盖安装冲突时需要卸载旧版，原有本机数据会删除。正式长期分发应配置固定私有签名密钥。
+
+## 美术素材
+
+风景桌面和人物头像为本项目原创生成素材，完整制作说明及提示词见 [ARTWORK.md](docs/ARTWORK.md)。参考《欢乐斗地主》的视觉层次，素材、角色与界面实现独立制作。手牌在窄横屏上使用两排，保留每张牌独立的大触控区；选牌上抬并显示金边与勾选。
 
 ## 牌面素材
 

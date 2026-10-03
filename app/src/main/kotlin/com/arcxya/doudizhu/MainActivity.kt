@@ -22,7 +22,7 @@ class MainActivity: Activity() {
     internal lateinit var actions:LinearLayout
     private lateinit var art:CardArt
     private lateinit var audio:AudioEngine
-    private lateinit var table:LinearLayout
+    private lateinit var table:TableArena
     private lateinit var notice:TextView
     private lateinit var info:TextView
     private lateinit var selection:TextView
@@ -30,7 +30,7 @@ class MainActivity: Activity() {
     private lateinit var last:CardStrip
     private lateinit var lastLabel:TextView
     private lateinit var stakes:TextView
-    private val people=mutableListOf<OpponentPanel>()
+    private val people=mutableListOf<TableSeat>()
     private val selected=linkedSetOf<Int>()
     private val handler=Handler(Looper.getMainLooper())
     private var running=false
@@ -47,8 +47,16 @@ class MainActivity: Activity() {
     private fun text(value:String,size:Float=18f,color:Int=Color.WHITE)=TextView(this).apply { text=value;textSize=size;setTextColor(color);gravity=Gravity.CENTER;includeFontPadding=false }
     private fun background(color:Int,stroke:Int=Color.TRANSPARENT)=GradientDrawable().apply {setColor(color);cornerRadius=dp(10).toFloat();setStroke(dp(2),stroke)}
     private fun button(label:String,primary:Boolean=false,action:()->Unit)=Button(this).apply {
-        text=label;textSize=20f;isAllCaps=false;setTypeface(null,Typeface.BOLD);setTextColor(if(primary)Color.rgb(30,44,29) else Color.WHITE)
-        background=background(if(primary)gold else Color.rgb(53,86,61),if(primary)Color.rgb(255,239,196) else Color.rgb(166,190,156))
+        text=label;textSize=20f;isAllCaps=false;setTypeface(null,Typeface.BOLD)
+        setTextColor(if(primary)Color.rgb(64,44,15) else Color.rgb(255,245,222))
+        background=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,if(primary)intArrayOf(Color.rgb(255,225,137),Color.rgb(239,178,63)) else intArrayOf(Color.rgb(69,117,83),Color.rgb(39,79,56))).apply {
+            cornerRadius=dp(24).toFloat();setStroke(dp(2),if(primary)Color.rgb(255,243,183) else Color.rgb(167,200,153))
+        }
+        stateListAnimator=null;elevation=dp(3).toFloat()
+        if(label=="提示"||label=="不出") {
+            val colors=if(label=="提示")intArrayOf(Color.rgb(77,157,151),Color.rgb(30,104,102)) else intArrayOf(Color.rgb(91,113,101),Color.rgb(58,79,68))
+            background=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,colors).apply {cornerRadius=dp(24).toFloat();setStroke(dp(2),if(label=="提示")Color.rgb(176,226,206) else Color.rgb(171,187,168))}
+        }
         minHeight=dp(48);minimumHeight=dp(48);minWidth=dp(90);setPadding(dp(8),0,dp(8),0);setOnClickListener{action()}
     }
     private fun buttonEnabled(b:Button,value:Boolean){b.isEnabled=value;b.alpha=if(value)1f else .42f}
@@ -63,32 +71,35 @@ class MainActivity: Activity() {
     private fun immersive(){window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION}
     override fun onWindowFocusChanged(hasFocus:Boolean){super.onWindowFocusChanged(hasFocus);if(hasFocus)immersive()}
     private fun buildLayout(){
-        val root=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL;setPadding(dp(12),dp(3),dp(12),dp(3));background=GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(Color.rgb(25,72,49),Color.rgb(12,42,30)))}
-        setContentView(root)
-        val header=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
-        root.addView(header,LinearLayout.LayoutParams(-1,dp(42)))
-        val title=text("闲来斗地主",23f,gold).apply{setTypeface(null,Typeface.BOLD);gravity=Gravity.CENTER_VERTICAL}
-        header.addView(title,LinearLayout.LayoutParams(0,-1,1f))
-        stakes=text("",16f);header.addView(stakes,LinearLayout.LayoutParams(0,-1,1.5f))
-        val options=button("声音 / 设置"){showSettings()};options.textSize=17f;header.addView(options,LinearLayout.LayoutParams(dp(124),dp(38)))
-        table=LinearLayout(this).apply {gravity=Gravity.CENTER_VERTICAL}
-        root.addView(table,LinearLayout.LayoutParams(-1,0,1f))
-        val left=OpponentPanel(this)
-        people.add(left);table.addView(left,LinearLayout.LayoutParams(dp(133),-1))
-        val center=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(8),0,dp(8),0)}
-        table.addView(center,LinearLayout.LayoutParams(0,-1,1f))
-        val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL};center.addView(top,LinearLayout.LayoutParams(-1,dp(31)))
-        notice=text("",21f,gold).apply{setTypeface(null,Typeface.BOLD);gravity=Gravity.CENTER_VERTICAL;maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(16,21,1,android.util.TypedValue.COMPLEX_UNIT_SP)}
-        top.addView(notice,LinearLayout.LayoutParams(0,-1,1f))
-        bottom=CardStrip(this,art).apply {contentDescription="地主底牌"};top.addView(bottom,LinearLayout.LayoutParams(dp(79),-1))
-        lastLabel=text("",16f).apply{gravity=Gravity.CENTER;maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(10,16,1,android.util.TypedValue.COMPLEX_UNIT_SP)};center.addView(lastLabel,LinearLayout.LayoutParams(-1,dp(20)))
-        last=CardStrip(this,art);center.addView(last,LinearLayout.LayoutParams(-1,0,1f))
-        val right=OpponentPanel(this)
-        people.add(right);table.addView(right,LinearLayout.LayoutParams(dp(133),-1))
-        info=text("",17f).apply{gravity=Gravity.CENTER_VERTICAL;setSingleLine();setAutoSizeTextTypeUniformWithConfiguration(14,17,1,android.util.TypedValue.COMPLEX_UNIT_SP)};root.addView(info,LinearLayout.LayoutParams(-1,dp(26)))
-        hand=HandLayout(this).apply{contentDescription="我的手牌，点击选择，再点出牌";setPadding(0,dp(4),0,dp(4))};root.addView(hand,LinearLayout.LayoutParams(-1,0,1.55f))
-        selection=text("",17f,Color.rgb(255,240,196)).apply{maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(12,17,1,android.util.TypedValue.COMPLEX_UNIT_SP)};root.addView(selection,LinearLayout.LayoutParams(-1,dp(26)))
-        actions=LinearLayout(this).apply{gravity=Gravity.CENTER};root.addView(actions,LinearLayout.LayoutParams(-1,dp(54)))
+        val canvas=FrameLayout(this)
+        canvas.addView(TableBackdrop(this),FrameLayout.LayoutParams(-1,-1))
+        val root=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL;setPadding(dp(8),dp(4),dp(8),dp(6))}
+        canvas.addView(root,FrameLayout.LayoutParams(-1,-1));setContentView(canvas)
+        val header=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(dp(8),0,dp(4),0);background=background(0x9b153b2a.toInt(),0x5dbdc68f)}
+        root.addView(header,LinearLayout.LayoutParams(-1,dp(40)))
+        val title=text("闲来斗地主",22f,gold).apply{setTypeface(null,Typeface.BOLD);gravity=Gravity.CENTER_VERTICAL;maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(16,22,1,android.util.TypedValue.COMPLEX_UNIT_SP)}
+        header.addView(title,LinearLayout.LayoutParams(dp(137),-1))
+        stakes=text("",17f,Color.rgb(255,241,197)).apply{maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(12,17,1,android.util.TypedValue.COMPLEX_UNIT_SP)}
+        header.addView(stakes,LinearLayout.LayoutParams(0,-1,1f))
+        val kitty=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;orientation=LinearLayout.HORIZONTAL}
+        kitty.addView(text("底牌",14f,Color.rgb(236,225,186)).apply{maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(11,14,1,android.util.TypedValue.COMPLEX_UNIT_SP)},LinearLayout.LayoutParams(dp(33),-1))
+        bottom=CardStrip(this,art).apply{contentDescription="地主底牌"};kitty.addView(bottom,LinearLayout.LayoutParams(dp(72),dp(38)))
+        header.addView(kitty,LinearLayout.LayoutParams(dp(105),-1))
+        val options=button("设置"){showSettings()}.apply{textSize=17f;contentDescription="声音、难度和出牌速度设置";minWidth=0;minimumWidth=0;minHeight=0;minimumHeight=0;elevation=0f}
+        header.addView(options,LinearLayout.LayoutParams(dp(74),dp(38)).apply{setMargins(dp(8),0,0,0)})
+        val left=TableSeat(this,0);val right=TableSeat(this,1);people.add(left);people.add(right)
+        notice=text("",21f,gold).apply{setTypeface(null,Typeface.BOLD);maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(15,21,1,android.util.TypedValue.COMPLEX_UNIT_SP)}
+        lastLabel=text("",16f,Color.rgb(255,240,206)).apply{maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(11,16,1,android.util.TypedValue.COMPLEX_UNIT_SP)}
+        last=CardStrip(this,art).apply{contentDescription="上家打出的牌"}
+        table=TableArena(this,left,right,notice,lastLabel,last)
+        root.addView(table,LinearLayout.LayoutParams(-1,0,.65f).apply{setMargins(0,dp(2),0,dp(2))})
+        actions=LinearLayout(this).apply{gravity=Gravity.CENTER};root.addView(actions,LinearLayout.LayoutParams(-1,dp(52)))
+        selection=text("",17f,Color.rgb(255,241,202)).apply{maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(13,17,1,android.util.TypedValue.COMPLEX_UNIT_SP)}
+        root.addView(selection,LinearLayout.LayoutParams(-1,dp(22)))
+        info=text("",16f,Color.rgb(255,237,178)).apply{setSingleLine();setAutoSizeTextTypeUniformWithConfiguration(12,16,1,android.util.TypedValue.COMPLEX_UNIT_SP);background=background(0x8f143a29.toInt())}
+        root.addView(info,LinearLayout.LayoutParams(-1,dp(20)).apply{setMargins(dp(22),dp(2),dp(22),0)})
+        hand=HandLayout(this).apply{contentDescription="我的手牌，点击选择，再点出牌";setPadding(0,dp(3),0,0)}
+        root.addView(hand,LinearLayout.LayoutParams(-1,0,1.3f))
     }
     private fun addAction(label:String,primary:Boolean=false,enabled:Boolean=true,action:()->Unit):Button {
         val b=button(label,primary,action);buttonEnabled(b,enabled)
@@ -96,17 +107,18 @@ class MainActivity: Activity() {
         return b
     }
     private fun render(){
-        stakes.text="${levels[game.level]}  ·  底分 ${if(game.highBid>0)game.highBid else "—"}  ·  ${game.multiplier} 倍"
+        stakes.text="${levels[game.level]} · ${if(game.highBid>0)game.highBid else "—"} 分 × ${game.multiplier}"
         for(p in 1..2){val v=people[p-1];val role=if(game.landlord<0)"待定" else if(game.landlord==p)"地主" else "农民"
-            v.bind(names[p],role,game.hands[p].size,game.status[p])
-            v.background=background(Color.rgb(23,59,39),if(game.turn==p&&game.phase!="over")gold else Color.rgb(88,126,93))
+            v.bind(names[p],role,game.hands[p].size,game.status[p],game.turn==p&&game.phase!="over")
         }
         bottom.show(if(game.landlord<0)listOf(54,54,54) else game.bottom)
         notice.text=when(game.phase){"bid"->if(game.turn==0)"轮到你叫地主" else "${names[game.turn]}正在叫分";"redeal"->"无人叫分，重新发牌";"over"->if(game.delta>0)"本局获胜" else "本局结束";else->if(game.turn==0){if(game.last==null)"轮到你自由出牌" else "轮到你出牌"}else "${names[game.turn]}正在出牌"}
         notice.announceForAccessibility(notice.text)
         lastLabel.text=game.last?.let{"${names[game.lastPlayer]} · ${it.kind.title}"}?:if(game.phase=="play")"两家不出后，可自由出牌" else "地主拿底牌，先出牌"
-        last.show(game.last?.cards?:emptyList())
-        info.text="我 · ${if(game.landlord<0)"身份待定" else if(game.landlord==0)"地主" else "农民"}   ${game.hands[0].size} 张                战绩 $wins 胜 / $games 局  ·  $score 分"
+        last.show(game.last?.cards?:emptyList());table.lastPlayer=game.lastPlayer
+        lastLabel.visibility=if(game.last==null)View.VISIBLE else View.GONE
+        last.contentDescription=game.last?.let { "${names[game.lastPlayer]}打出${it.kind.title}："+it.cards.joinToString("、"){card->Rules.cardName(card)} }?:"尚未出牌"
+        info.text="我 · ${if(game.landlord<0)"身份待定" else if(game.landlord==0)"地主" else "农民"} · ${game.hands[0].size} 张     战绩 $wins 胜 / $games 局 · $score 分"
         selected.retainAll(game.hands[0].toSet());hand.removeAllViews()
         game.hands[0].asReversed().forEach { card->
             val face=CardFace(this,art,card,true);face.isSelected=card in selected;face.isEnabled=game.phase=="play"&&game.turn==0
@@ -124,7 +136,7 @@ class MainActivity: Activity() {
     }
     private fun refreshSelection(){
         val m=Rules.classify(selected.toList());val valid=Rules.beats(m,game.last)
-        selection.text=if(selected.isEmpty())"先点选手牌，再点“出牌”；也可点“提示”" else "已选 ${selected.size} 张 · ${m?.kind?.title?:"牌型不完整"}${if(m!=null&&!valid)" · 压不过上家" else ""}"
+        selection.text=if(selected.isEmpty())"点击手牌选中，再点“出牌” · 不知道出什么，可点“提示”" else "已选 ${selected.size} 张 · ${m?.kind?.title?:"牌型不完整"}${if(m!=null&&!valid)" · 压不过上家" else ""}"
         playButton?.let{buttonEnabled(it,selected.isNotEmpty()&&valid)}
     }
     private fun humanBid(n:Int){if(game.turn!=0||game.phase!="bid")return;game.bid(n);audio.cue("bid");advance()}
