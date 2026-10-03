@@ -89,7 +89,7 @@ class MainActivity: Activity() {
             setCompoundDrawablesWithIntrinsicBounds(null,TableIcon(icon,dp(22)),null,null)
             setOnClickListener{action()}
         }
-        val back=tool("返回",3){onBackPressed()};back.setCompoundDrawablesWithIntrinsicBounds(null,null,null,null);back.text="‹";back.textSize=42f;back.contentDescription="返回，保存牌局"
+        val back=tool("返回",3){onBackPressed()};back.setCompoundDrawablesWithIntrinsicBounds(null,TableIcon(4,dp(28)),null,null);back.text="";back.textSize=1f;back.contentDescription="返回，保存牌局"
         table.place(back,.012f,.006f,.065f,.12f)
         table.place(label("单机斗地主",14f),.085f,.018f,.18f,.055f)
         autoButton=tool("托管",0){autoPlay=!autoPlay;render();schedule()}
@@ -251,6 +251,7 @@ class MainActivity: Activity() {
     internal fun testSeatPlays(){
         testStart()
         for(p in 0..2){val card=p*4;val owner=game.hands.indexOfFirst{card in it};if(owner!=p){val swap=game.hands[p].first();game.hands[p].remove(swap);game.hands[owner].remove(card);game.hands[p].add(card);game.hands[owner].add(swap)};playCards(listOf(card))}
+        for(p in 0..2)game.hands[p]=Rules.sorted(game.hands[p]).toMutableList()
         render()
     }
     internal fun testPlayedCards(cards:List<Int>){

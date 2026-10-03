@@ -21,6 +21,7 @@ class CharacterView(context:Context,private val atlas:Bitmap,private val person:
         val tile=atlas.width/3
         val w=min(width.toFloat(),height*(if(person==2).78f else .58f));val x=(width-w)/2
         if(active){paint.color=0x90fff09c.toInt();canvas.drawOval(RectF(x,height*.85f,x+w,height*.99f),paint)}
+        paint.color=Color.WHITE
         canvas.drawBitmap(atlas,Rect(person*tile,0,(person+1)*tile,if(person==2)(atlas.height*.67f).toInt() else atlas.height),RectF(x,0f,x+w,height.toFloat()),paint)
     }
 }
@@ -37,6 +38,7 @@ class TableIcon(private val kind:Int,private val pixels:Int):Drawable(){
             0->{c.drawRoundRect(RectF(5f,8f,27f,27f),4f,4f,p);c.drawLine(16f,2f,16f,8f,p);c.drawCircle(11f,16f,1.5f,p);c.drawCircle(21f,16f,1.5f,p);c.drawLine(11f,23f,21f,23f,p)}
             1->{c.drawRoundRect(RectF(5f,4f,20f,26f),2f,2f,p);c.drawRoundRect(RectF(12f,8f,27f,30f),2f,2f,p)}
             2->{val q=Path();q.moveTo(5f,12f);q.lineTo(11f,12f);q.lineTo(19f,5f);q.lineTo(19f,27f);q.lineTo(11f,20f);q.lineTo(5f,20f);q.close();c.drawPath(q,p);c.drawArc(RectF(13f,8f,29f,25f),-60f,120f,false,p)}
+            4->{p.strokeWidth=4f;c.drawLine(22f,4f,10f,16f,p);c.drawLine(10f,16f,22f,28f,p);p.strokeWidth=2.5f}
             else->{for(y in listOf(7f,16f,25f)){c.drawLine(4f,y,28f,y,p)};c.drawCircle(11f,7f,3f,p);c.drawCircle(23f,16f,3f,p);c.drawCircle(13f,25f,3f,p)}
         };c.restore()
     }
