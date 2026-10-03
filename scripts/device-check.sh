@@ -25,13 +25,14 @@ for size in compact large largefont; do
   adb shell am instrument -w -r \
     -e expectedWidth "$width" -e expectedHeight "$height" -e expectedFontScale "$font_scale" \
     com.arcxya.doudizhu.test/androidx.test.runner.AndroidJUnitRunner | tee "device-results/$size-tests.txt"
+  for frame in table selected played long-play three-seats bidding; do
+    adb pull "/sdcard/Android/data/com.arcxya.doudizhu/files/screenshots/native-$frame.png" "device-results/native-$size-$frame.png" 2>/dev/null || true
+  done
   if ! grep -q 'OK (1 test)' "device-results/$size-tests.txt"; then
     adb exec-out screencap -p > "device-results/native-$size-failure.png"
     adb logcat -d -s AndroidRuntime:E > device-results/crashes.txt
     exit 1
   fi
-  for frame in table selected played long-play three-seats bidding; do
-    adb pull "/sdcard/Android/data/com.arcxya.doudizhu/files/screenshots/native-$frame.png" "device-results/native-$size-$frame.png"
-  done
+
 done
 adb logcat -d -s AndroidRuntime:E > device-results/crashes.txt

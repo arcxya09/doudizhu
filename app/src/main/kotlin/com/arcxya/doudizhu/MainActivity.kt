@@ -115,7 +115,7 @@ class MainActivity: Activity() {
             if(p==0)table.place(cards,.315f,.242f,.37f,.157f)
             else table.place(cards,if(p==1).225f else .535f,.134f,.25f,.193f)
         }
-        stakes=label("",14f,0xff825d30.toInt()).apply{setShadowLayer(0f,0f,0f,0)};table.place(stakes,.32f,.367f,.36f,.04f)
+        stakes=label("",14f,0xff825d30.toInt()).apply{setShadowLayer(0f,0f,0f,0)};table.place(stakes,.32f,.405f,.36f,.045f)
         notice=label("",18f,0xff7c451d.toInt()).apply{setShadowLayer(0f,0f,0f,0)};table.place(notice,.30f,.41f,.4f,.049f)
         actions=LinearLayout(this).apply{gravity=Gravity.CENTER;clipChildren=false};table.place(actions,.25f,.464f,.5f,.14f)
         hand=HandLayout(this).apply{contentDescription="我的手牌，点击或横滑选择，再点出牌";setPadding(0,dp(2),0,0)};table.place(hand,.17f,.60f,.80f,.308f)
@@ -139,7 +139,8 @@ class MainActivity: Activity() {
     }
     private fun render(){
         stakes.text="单机${levels[game.level]}场  底分：${if(game.highBid>0)game.highBid else "—"}"
-        stakes.visibility=if(seatMoves[0].isEmpty())View.VISIBLE else View.INVISIBLE
+        stakes.visibility=if(game.phase=="bid")View.VISIBLE else View.INVISIBLE
+        notice.visibility=if(game.phase=="bid")View.INVISIBLE else View.VISIBLE
         autoButton.text=if(autoPlay)"手动" else "托管"
         fun role(p:Int)=if(game.landlord<0)"" else if(game.landlord==p)"地主" else "农民"
         for(p in 1..2){

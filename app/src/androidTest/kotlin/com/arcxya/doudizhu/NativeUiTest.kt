@@ -173,11 +173,13 @@ class NativeUiTest {
             await("Tap exposed card $index selects it"){onMain(inst){activity.hand.getChildAt(index).isSelected}}
         }
         tap(inst,device,activity,"重选")
+        await("Reselection clears cards and completes layout"){onMain(inst){activity.hand.childCount==20 && (0 until 20).all{!activity.hand.getChildAt(it).isSelected && activity.hand.getChildAt(it).width>0}}}
         val from=point(0);val to=point(4)
         assertTrue(device.swipe(from.first,from.second,to.first,to.second,24))
         await("Swipe selects exactly five cards"){onMain(inst){(0 until 20).all{activity.hand.getChildAt(it).isSelected == (it<5)}}}
         captureGame(inst,device,activity,File(dir,"native-selected.png"))
         tap(inst,device,activity,"重选")
+        await("Reselection clears cards and completes layout"){onMain(inst){activity.hand.childCount==20 && (0 until 20).all{!activity.hand.getChildAt(it).isSelected && activity.hand.getChildAt(it).width>0}}}
         tap(inst, device, activity, "提示")
         await("Real Hint tap selects cards and enables Play", 5000) {
             onMain(inst) {
