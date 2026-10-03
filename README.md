@@ -1,14 +1,14 @@
 # 闲来斗地主 — Kotlin 原生 Android 版
 
-v2.2.1 使用 Kotlin 原生风景牌桌：左右人物头像、顶部底牌、放大叠放出牌区、大按钮和真实牌面贴图。无 HTML/CSS/JavaScript，无浏览器内核，无联网权限，无账号、广告或内购。
+v3.0.0 使用 Kotlin 原生风景牌桌：按用户提供的参考截图重排：左右站立人物、三家独立出牌区、中央操作区、左下角自己角色、底部单排手牌与计分栏。无 HTML/CSS/JavaScript，无浏览器内核，无联网权限，无账号、广告或内购。
 
-[下载安装包](https://github.com/arcxya09/doudizhu/releases/tag/v2.2.1) · Android 8.0 及以上。
+[下载安装包](https://github.com/arcxya09/doudizhu/releases/tag/v3.0.0) · Android 8.0 及以上。
 
 ## 实现
 
 - `Rules.kt`：纯 Kotlin 规则、状态机和三个难度的人机；人机只接收己方手牌和公开信息，不读取对手暗牌。
 - `MainActivity.kt`：原生横屏沉浸式牌桌、系统按钮、设置、提示、战绩与 AtomicFile 存档。
-- `TableViews.kt`：原生 ViewGroup 测量牌桌区域，Canvas 绘制背景及人物贴图。
+- `TableViews.kt`：原生 ViewGroup 测量牌桌区域，按参考图归一化坐标定位，并绘制金色牌桌及透明角色贴图。
 - `CardViews.kt`：原生 View 绘制本地牌面贴图；ViewGroup 实际测量单排叠放手牌，露出大号点数和花色，支持点击和横滑连续选牌。
 - `AudioEngine.kt`：在本机生成原创 PCM WAV 音乐和音效，通过 MediaPlayer / SoundPool 播放，处理后台暂停与音频焦点。
 - `assets/cards.webp`：55 格牌面图集（54 张牌及牌背），附第三方素材许可。
@@ -44,3 +44,7 @@ Kotlin 单元测试覆盖全部牌型、穷举合法出牌对照、连续不出�
 ## 牌面素材
 
 采用 [saulspatz/SVGCards](https://github.com/saulspatz/SVGCards) 的公共领域 Jumbo Index 两色大牌角牌面。直接从 SVG 转为本地 WebP 贴图，保留完整图案，运行时在单独留白区域绘制大号点数和花色，贴图中央图案绘制在右侧。许可说明见 `app/src/main/assets/CARD_ART_LICENSE.txt`。每格 160×240 像素、9 列；0—51 为 3 到 2，花色依次黑桃/红桃/梅花/方块，52 小王、53 大王、54 牌背。
+
+## v3.0 参考布局
+
+布局以用户提供的 1536×896 横屏截图为依据，原生布局使用相对位置适配屏幕。左右人物位于两侧上半区，出牌区紧邻各自人物，自己出牌居中；按钮位于桌面中央，手牌从左下角色右侧展开。右上角工具按钮分别提供托管、重选、声音和设置。叫地主提供“叫地主 / 不叫”，叫地主按最高 3 分执行；玩家不限时，蓝色圆标显示 ∞。底部显示总积分、本局/选牌信息、战绩和倍数。

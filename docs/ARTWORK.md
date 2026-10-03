@@ -24,3 +24,15 @@ Asset type: two-avatar texture atlas for a native Android Dou Dizhu game, rectan
 Primary request: Two original friendly Chinese countryside card-game opponent portraits, each centered with chest-up composition and enough margin to crop inside a circle. LEFT: cheerful middle-aged farmer man in a straw hat and blue cotton vest, rounded friendly face. RIGHT: cheerful older woman with silver hair in a neat bun, teal traditional jacket, kind lively smile. Welcoming polished 3D cartoon mobile game portrait style, soft warm studio lighting, clear facial features. Each portrait on a matching quiet muted dark jade green background, consistent scale and style.
 Constraints: Exactly two equal square panels side by side in a 2:1 atlas. No text, no UI, no cards, no logos, no watermarks. Original characters, no proprietary characters.
 ```
+
+## v3.0 场景与人物
+
+使用内置图像生成工具制作 `app/src/main/assets/classic_table.webp`（1600×900）和 `app/src/main/assets/characters.webp`（768×512，三个透明角色横向图集）。布局依据用户提供的截图，角色和场景独立制作。
+
+背景提示词：
+
+Create a background-only landscape mobile Chinese Dou Dizhu card game illustration, 16:9 wide. Closely follow this composition: bright blue sky and distant idyllic mountains occupy top third, ornate Chinese courtyard balustrades on the left and right recede toward a central garden, a large golden tan oval card table fills the bottom two thirds, its far curved rim at about 40 percent down the image and its near rim at 94 percent down. Warm gold wood edges, smooth calm light ochre felt playing surface, centered symmetrical perspective. Polished playful 3D casual mobile game aesthetic. Empty playing area, no people, no cards, no buttons, no text, no logos. All decor confined to upper landscape and far left/right margins. The table must be tan and gold, not green.
+
+人物提示词：
+
+A production character sprite atlas on a genuinely transparent background. Exactly three full-body original cheerful Chinese countryside cartoon people in three equal-width vertical columns, each entire body visible from head to shoes, all baseline aligned and same scale, generous transparent space between them, no overlap. Wide 3:2 image. Left column: friendly middle-aged farmer with straw hat, blue cotton vest, cream shirt, brown trousers. Middle column: friendly elderly woman with silver bun, turquoise traditional jacket, navy trousers. Right column: cheerful young adult man with short black hair, orange vest, cream shirt, brown trousers. Polished high quality soft 3D chibi mobile card game style, big expressive heads and short bodies, warm kind smiles. Relaxed standing poses, hands at sides or one hand on hip, looking slightly toward camera. No cards, no props, no text, no logos, no frames, no platform, no scenery, no ground shadows, transparent background.

@@ -30,7 +30,7 @@ for size in compact large largefont; do
     adb logcat -d -s AndroidRuntime:E > device-results/crashes.txt
     exit 1
   fi
-  for frame in table selected played long-play; do
+  for frame in table selected played long-play three-seats bidding; do
     adb pull "/sdcard/Android/data/com.arcxya.doudizhu/files/screenshots/native-$frame.png" "device-results/native-$size-$frame.png"
   done
 done

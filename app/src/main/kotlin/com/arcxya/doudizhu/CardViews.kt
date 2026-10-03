@@ -19,6 +19,7 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
     private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private fun dp(v:Float)=v*resources.displayMetrics.density
     var indexWidth=0f
+    var compactIndex=false
     init {contentDescription=if(card==54) "未公开底牌" else Rules.cardName(card);isFocusable=largeIndex}
     override fun onDraw(canvas:Canvas) {
         val edge=dp(2f);val lift=if(largeIndex)dp(12f) else 0f
@@ -33,18 +34,18 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
         // Crop only the central illustration, so the original small corner indexes are not duplicated.
         val src=art.source(card);src.inset(30,42)
         val artBox=RectF(box.left+margin+dp(3f),box.top+h*.30f,box.right-dp(4f),box.bottom-dp(5f))
-        if(artBox.width()>0)canvas.drawBitmap(art.atlas,src,artBox,paint)
+        if(!compactIndex&&artBox.width()>0)canvas.drawBitmap(art.atlas,src,artBox,paint)
         val red=card==53 || (card<52 && card%4 in listOf(1,3))
         paint.color=if(red)Color.rgb(187,30,24) else Color.rgb(21,25,23)
         paint.typeface=Typeface.create("serif",Typeface.BOLD);paint.textAlign=Paint.Align.CENTER
         val x=box.left+margin/2+dp(1f)
         val rank=if(card>=52)if(card==53)"大" else "小" else when(val r=card/4+3){11->"J";12->"Q";13->"K";14->"A";15->"2";else->r.toString()}
-        paint.textSize=min(h*.25f,dp(30f))
+        paint.textSize=min(h*(if(compactIndex).43f else .25f),dp(30f))
         val available=margin-dp(2f)
         paint.textScaleX=min(1f,available/paint.measureText(rank))
         val baseline=box.top+dp(3f)-paint.fontMetrics.ascent
         canvas.drawText(rank,x,baseline,paint);paint.textScaleX=1f
-        val size=min(h*.24f,margin*.88f)
+        val size=min(h*(if(compactIndex).31f else .24f),margin*.88f)
         if(card>=52){paint.textSize=size;canvas.drawText("王",x,baseline+size*1.05f,paint)}
         else drawSuit(canvas,card%4,x-size/2,baseline+dp(3f),size)
         if(isSelected){paint.color=Color.rgb(220,151,18);canvas.drawRect(box.left,box.bottom-dp(5f),box.right,box.bottom,paint)}
@@ -128,17 +129,17 @@ class HandLayout(context:Context):ViewGroup(context) {
     override fun performClick():Boolean{super.performClick();return true}
 }
 /** Overlap to keep played cards large; very long combinations wrap before indexes become cramped. */
-class CardStrip(context:Context,private val art:CardArt):ViewGroup(context) {
+class CardStrip(context:Context,private val art:CardArt,private val maxColumns:Int=Int.MAX_VALUE):ViewGroup(context) {
     private var columns=1;private var rowHeight=1;private var cardWidth=1;private var step=0f
     fun show(cards:List<Int>){removeAllViews();cards.forEach{addView(CardFace(context,art,it))};requestLayout()}
     override fun onMeasure(ws:Int,hs:Int){
         val w=MeasureSpec.getSize(ws);val h=MeasureSpec.getSize(hs);setMeasuredDimension(w,h)
         val d=resources.displayMetrics.density
-        columns=if(childCount>12 && h>=100*d) (childCount+1)/2 else childCount.coerceAtLeast(1)
+        columns=if(childCount>maxColumns)maxColumns else if(childCount>12 && h>=100*d) (childCount+1)/2 else childCount.coerceAtLeast(1)
         val rows=if(childCount>columns)2 else 1;rowHeight=h/rows
         cardWidth=min((rowHeight/1.5f).toInt(),(w/(1+(columns-1)*.38f)).toInt()).coerceAtLeast(1)
         step=if(columns>1)min(cardWidth*.64f,(w-cardWidth).toFloat()/(columns-1)) else 0f
-        for(i in 0 until childCount){val v=getChildAt(i) as CardFace;v.indexWidth=if(columns==1)cardWidth*.42f else step
+        for(i in 0 until childCount){val v=getChildAt(i) as CardFace;v.compactIndex=rows>1;v.indexWidth=if(columns==1)cardWidth*.42f else step
             v.measure(MeasureSpec.makeMeasureSpec(cardWidth,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(rowHeight,MeasureSpec.EXACTLY))}
     }
     override fun onLayout(c:Boolean,l:Int,t:Int,r:Int,b:Int){

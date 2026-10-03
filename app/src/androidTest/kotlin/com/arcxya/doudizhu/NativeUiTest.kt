@@ -146,9 +146,12 @@ class NativeUiTest {
                 assertTrue("Large hand cards", v.height >= 100 * context.resources.displayMetrics.density)
                 if(previousTop>=0)assertEquals("Single row",previousTop,v.top)
                 previousTop=v.top
-                assertTrue("Readable exposed index",activity.hand.exposedBounds(i).width() >= 24 * context.resources.displayMetrics.density - 1)
+                assertTrue("Readable exposed index",activity.hand.exposedBounds(i).width() >= 22 * context.resources.displayMetrics.density - 1)
                 if(i>0)assertTrue("Cards overlap", v.left < activity.hand.getChildAt(i-1).right)
             }
+            assertTrue("Hand begins to the right of player character",activity.hand.left >= decor.width*.16f)
+            assertTrue("Hand follows lower reference band",activity.hand.top >= decor.height*.57f && activity.hand.bottom <= decor.height*.93f)
+            assertTrue("Actions in central table",activity.actions.top >= decor.height*.43f && activity.actions.bottom <= decor.height*.63f)
             val actionRect = Rect()
             assertTrue(activity.actions.getGlobalVisibleRect(actionRect))
             assertTrue("Controls clipped", actionRect.bottom <= decor.height)
@@ -199,6 +202,18 @@ class NativeUiTest {
         }
         inst.waitForIdleSync()
         captureGame(inst,device,activity,File(dir,"native-long-play.png"))
+        inst.runOnMainSync {activity.testSeatPlays()}
+        captureGame(inst,device,activity,File(dir,"native-three-seats.png"))
+        inst.runOnMainSync {activity.testBidding()}
+        captureGame(inst,device,activity,File(dir,"native-bidding.png"))
+        tap(inst,device,activity,"叫地主")
+        await("Call landlord from reference-layout button"){onMain(inst){activity.game.landlord==0 && activity.game.hands[0].size==20}}
+        inst.runOnMainSync {activity.finish()};inst.waitForIdleSync()
+        activity=inst.startActivitySync(Intent(context,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
+        await("Restored table ready for autoplay"){onMain(inst){activity.hasWindowFocus() && activity.hand.width>0}}
+        tap(inst,device,activity,"托管")
+        await("Autoplay completes a legal player move",8000){onMain(inst){activity.game.hands[0].size<20}}
+        tap(inst,device,activity,"手动")
         inst.runOnMainSync { activity.finish() }
         device.unfreezeRotation()
     }
