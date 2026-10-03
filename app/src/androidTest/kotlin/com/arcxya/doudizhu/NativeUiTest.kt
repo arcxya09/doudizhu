@@ -22,6 +22,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
 @RunWith(AndroidJUnit4::class)
@@ -58,6 +60,11 @@ class NativeUiTest {
 
     /** Compare the screenshot with the actual native window, independently of its artwork/palette. */
     private fun captureGame(inst: Instrumentation, device: UiDevice, activity: MainActivity, file: File) {
+        inst.waitForIdleSync()
+        val frames=CountDownLatch(1)
+        inst.runOnMainSync { activity.window.decorView.postOnAnimation { activity.window.decorView.postOnAnimation { frames.countDown() } } }
+        assertTrue("Two complete layout frames before capture",frames.await(5,TimeUnit.SECONDS))
+        SystemClock.sleep(250)
         var lastDifference = Float.MAX_VALUE
         repeat(8) {
             device.waitForIdle()

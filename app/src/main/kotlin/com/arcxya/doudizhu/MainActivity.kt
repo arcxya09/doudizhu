@@ -205,6 +205,13 @@ class MainActivity: Activity() {
     override fun onDestroy(){handler.removeCallbacksAndMessages(null);if(::audio.isInitialized)audio.release();super.onDestroy()}
     @Deprecated("Legacy Android back callback")
     override fun onBackPressed(){if(modal)return;modal=true;handler.removeCallbacksAndMessages(null);AlertDialog.Builder(this).setTitle("暂时离开牌桌？").setMessage("当前牌局已经保存，下次打开继续。").setPositiveButton("离开"){_,_->finish()}.setNegativeButton("继续玩",null).create().apply{setOnDismissListener{modal=false;schedule()};show()}}
-    internal fun testPlayedCards(cards:List<Int>){game.last=Rules.classify(cards);game.lastPlayer=1;game.turn=0;game.phase="play";render()}
+    internal fun testPlayedCards(cards:List<Int>){
+        val rest=(0..53).filter{it !in cards}
+        game.hands[0].clear();game.hands[0].addAll(rest.take(17))
+        game.hands[1].clear();game.hands[1].addAll(cards)
+        game.hands[2].clear();game.hands[2].addAll(rest.drop(17))
+        game.landlord=1;game.turn=1;game.phase="play";game.last=null
+        game.play(cards);render()
+    }
     internal fun testStart(level:Int=1){handler.removeCallbacksAndMessages(null);game=Game.create(level,kotlin.random.Random(42));game.turn=0;game.bid(3);selected.clear();persist();render();running=false}
 }

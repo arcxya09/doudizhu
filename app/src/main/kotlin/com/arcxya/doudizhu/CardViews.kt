@@ -41,13 +41,26 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
         val rank=if(card>=52)if(card==53)"大" else "小" else when(val r=card/4+3){11->"J";12->"Q";13->"K";14->"A";15->"2";else->r.toString()}
         paint.textSize=min(h*.25f,dp(30f))
         val available=margin-dp(2f)
-        if(paint.measureText(rank)>available)paint.textSize*=available/paint.measureText(rank)
+        paint.textScaleX=min(1f,available/paint.measureText(rank))
         val baseline=box.top+dp(3f)-paint.fontMetrics.ascent
-        canvas.drawText(rank,x,baseline,paint)
-        val symbol=if(card>=52)"王" else listOf("♠","♥","♣","♦")[card%4]
-        paint.textSize=min(h*.24f,margin*.95f)
-        canvas.drawText(symbol,x,baseline+paint.textSize*1.05f,paint)
+        canvas.drawText(rank,x,baseline,paint);paint.textScaleX=1f
+        val size=min(h*.24f,margin*.88f)
+        if(card>=52){paint.textSize=size;canvas.drawText("王",x,baseline+size*1.05f,paint)}
+        else drawSuit(canvas,card%4,x-size/2,baseline+dp(3f),size)
         if(isSelected){paint.color=Color.rgb(220,151,18);canvas.drawRect(box.left,box.bottom-dp(5f),box.right,box.bottom,paint)}
+    }
+    private fun drawSuit(canvas:Canvas,suit:Int,x:Float,y:Float,size:Float){
+        canvas.save();canvas.translate(x,y);canvas.scale(size,size)
+        val shape=Path()
+        when(suit){
+            1->{shape.moveTo(.5f,.95f);shape.cubicTo(-.32f,.37f,.08f,-.22f,.5f,.19f);shape.cubicTo(.92f,-.22f,1.32f,.37f,.5f,.95f);shape.close();canvas.drawPath(shape,paint)}
+            3->{shape.moveTo(.5f,0f);shape.lineTo(.94f,.5f);shape.lineTo(.5f,1f);shape.lineTo(.06f,.5f);shape.close();canvas.drawPath(shape,paint)}
+            else->{
+                if(suit==0){shape.moveTo(.5f,0f);shape.cubicTo(.36f,.24f,-.03f,.39f,.05f,.66f);shape.cubicTo(.11f,.88f,.4f,.86f,.5f,.65f);shape.cubicTo(.6f,.86f,.89f,.88f,.95f,.66f);shape.cubicTo(1.03f,.39f,.64f,.24f,.5f,0f);shape.close();canvas.drawPath(shape,paint)}
+                else{canvas.drawCircle(.5f,.26f,.25f,paint);canvas.drawCircle(.25f,.59f,.25f,paint);canvas.drawCircle(.75f,.59f,.25f,paint)}
+                shape.reset();shape.moveTo(.5f,.45f);shape.lineTo(.31f,1f);shape.lineTo(.69f,1f);shape.close();canvas.drawPath(shape,paint)
+            }
+        };canvas.restore()
     }
     override fun setSelected(selected:Boolean){super.setSelected(selected);invalidate()}
     override fun onInitializeAccessibilityNodeInfo(info:AccessibilityNodeInfo){
