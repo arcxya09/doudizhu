@@ -86,7 +86,7 @@ class MainActivity: Activity() {
         if(Build.VERSION.SDK_INT>=29){window.isStatusBarContrastEnforced=false;window.isNavigationBarContrastEnforced=false}
         if(Build.VERSION.SDK_INT>=30){
             window.setDecorFitsSystemWindows(false)
-            window.insetsController?.apply{
+            window.decorView.windowInsetsController?.apply{
                 systemBarsBehavior=android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                 hide(android.view.WindowInsets.Type.systemBars())
             }
