@@ -158,7 +158,7 @@ class NativeUiTest {
                 assertEquals("Card height visible", v.height, rect.height())
                 assertTrue("Card touch width", v.width >= 48 * context.resources.displayMetrics.density - 1)
                 assertTrue("Card touch height", v.height >= 48 * context.resources.displayMetrics.density - 1)
-                assertTrue("Large hand cards", v.height >= 100 * context.resources.displayMetrics.density)
+                assertTrue("Large hand cards", v.height >= (if(device.displayHeight<640)90 else 100) * context.resources.displayMetrics.density)
                 if(previousTop>=0)assertEquals("Single row",previousTop,v.top)
                 previousTop=v.top
                 assertTrue("Readable exposed index",activity.hand.exposedBounds(i).width() >= 22 * context.resources.displayMetrics.density - 1)

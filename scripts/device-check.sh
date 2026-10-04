@@ -8,7 +8,7 @@ adb shell input keyevent KEYCODE_WAKEUP
 adb shell wm dismiss-keyguard
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-for size in compact large largefont cutout; do
+for size in compact large largefont wide cutout; do
   # Relaunch with a fresh instrumentation process after changing display settings.
   # A reboot is unnecessary: test coordinates come from newly measured native views.
   adb shell am force-stop com.arcxya.doudizhu
@@ -17,6 +17,7 @@ for size in compact large largefont cutout; do
   font_scale=1.0
   if [ "$size" = large ]; then width=1920; height=1080; fi
   if [ "$size" = largefont ]; then font_scale=1.3; fi
+  if [ "$size" = wide ]; then height=588; fi
   if [ "$size" = cutout ]; then
     # Cutout geometry is defined against the device's native portrait display.
     # Reset wm overrides and reboot so DisplayManager reloads the overlay.
