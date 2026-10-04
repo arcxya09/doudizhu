@@ -132,9 +132,9 @@ class MainActivity: Activity() {
         for(p in 1..2){
             val x=if(p==1).045f else .885f
             val badge=label("",10f).apply{background=background(0xffce892d.toInt(),0xffefca75.toInt())};badges.add(badge)
-            table.place(badge,x+.005f,.408f,.067f,.038f)
-            val name=label(names[p],13f).apply{tag="opponent-text"};seatNames.add(name);table.place(name,x,.449f,.08f,.043f)
-            val local=label("电脑",11f,0xffffe77b.toInt());table.place(local,x,.49f,.08f,.035f)
+            table.place(badge,x+.005f,.405f,.067f,.042f)
+            val name=label(names[p],13f).apply{tag="opponent-text"};seatNames.add(name);table.place(name,x,.448f,.08f,.06f)
+            val local=label("电脑",11f,0xffffe77b.toInt());table.place(local,x,.51f,.08f,.05f)
             val count=label("",17f).apply{tag="opponent-text";background=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,intArrayOf(0xff70a7d3.toInt(),0xff467db2.toInt())).apply{cornerRadius=dp(2).toFloat();setStroke(dp(1),0xffc6eaff.toInt())}}
             counts.add(count);table.place(count,if(p==1).122f else .856f,.41f,.025f,.071f)
             val cue=label("",25f,0xffc2f1ff.toInt()).apply{tag="opponent-text";setTypeface(null,Typeface.BOLD_ITALIC)};cues.add(cue)
@@ -160,7 +160,7 @@ class MainActivity: Activity() {
     }
     private fun addAction(label:String,primary:Boolean=false,enabled:Boolean=true,action:()->Unit):Button {
         val b=button(label,primary,action);buttonEnabled(b,enabled)
-        val width=(resources.configuration.screenWidthDp*.105f).toInt().coerceIn(70,105)
+        val width=(resources.configuration.screenWidthDp*.105f).toInt().coerceIn(if(label.length>3)100 else 76,110)
         actions.addView(b,LinearLayout.LayoutParams(dp(width),dp(48)).apply{setMargins(dp(4),0,dp(4),0)})
         return b
     }

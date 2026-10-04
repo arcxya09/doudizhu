@@ -70,6 +70,9 @@ class NativeUiTest {
             device.waitForIdle()
             val expected = onMain(inst) {
                 val decor = activity.window.decorView
+                for(button in all(decor).filterIsInstance<Button>().filter{it.isShown && it.text.isNotEmpty()}){
+                    assertTrue("Full button caption visible: ${button.text}",button.paint.measureText(button.text.toString())<=button.width-button.compoundPaddingLeft-button.compoundPaddingRight+1)
+                }
                 val image = Bitmap.createBitmap(decor.width, decor.height, Bitmap.Config.ARGB_8888)
                 decor.draw(Canvas(image))
                 val location = IntArray(2)
