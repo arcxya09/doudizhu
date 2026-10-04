@@ -133,6 +133,21 @@ class NativeUiTest {
         }
         inst.runOnMainSync {
             val decor = activity.window.decorView
+            assertEquals("Window spans full physical display width",device.displayWidth,decor.width)
+            assertEquals("Window spans full physical display height",device.displayHeight,decor.height)
+            if(args.getString("expectedCutout")=="true"){
+                val cutout=decor.rootWindowInsets.displayCutout
+                assertNotNull("Emulated cutout exists",cutout)
+                val table=all(decor).filterIsInstance<ReferenceTable>().single()
+                val bg=all(table).filterIsInstance<TableBackdrop>().single()
+                assertEquals("Background reaches cutout edge",0,bg.left)
+                assertEquals("Background covers display",device.displayWidth,bg.width)
+                for(v in all(table).filterIsInstance<Button>()){
+                    val xy=IntArray(2);v.getLocationOnScreen(xy)
+                    assertTrue("Button avoids left cutout",xy[0]>=cutout!!.safeInsetLeft)
+                    assertTrue("Button avoids right cutout",xy[0]+v.width<=decor.width-cutout.safeInsetRight)
+                }
+            }
             assertTrue("No browser view", all(decor).none { it.javaClass.name.contains("WebView") })
             var previousTop = -1
             for (i in 0 until activity.hand.childCount) {

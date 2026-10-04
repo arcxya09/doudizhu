@@ -28,19 +28,19 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
         val box=RectF((width-w)/2,top,(width+w)/2,top+h)
         paint.style=Paint.Style.FILL;paint.color=if(isSelected)Color.rgb(255,199,56) else Color.rgb(191,181,155)
         canvas.drawRoundRect(RectF(box.left-edge,box.top-edge,box.right+edge,box.bottom+edge),dp(5f),dp(5f),paint)
-        paint.color=Color.rgb(255,253,242);canvas.drawRoundRect(box,dp(4f),dp(4f),paint)
+        paint.color=Color.rgb(255,255,252);canvas.drawRoundRect(box,dp(4f),dp(4f),paint)
         if(card==54) {canvas.drawBitmap(art.atlas,art.source(card),box,paint);return}
         val margin=min(if(indexWidth>0)indexWidth-dp(3f) else w*.42f,w*.48f).coerceAtLeast(dp(10f))
         // Crop only the central illustration, so the original small corner indexes are not duplicated.
         val src=art.source(card);src.inset(30,42)
         val artBox=RectF(box.left+margin+dp(3f),box.top+h*.30f,box.right-dp(4f),box.bottom-dp(5f))
-        if(!compactIndex&&artBox.width()>0)canvas.drawBitmap(art.atlas,src,artBox,paint)
+        if(card>=52&&!compactIndex&&artBox.width()>0)canvas.drawBitmap(art.atlas,src,artBox,paint)
         val red=card==53 || (card<52 && card%4 in listOf(1,3))
         paint.color=if(red)Color.rgb(187,30,24) else Color.rgb(21,25,23)
         paint.typeface=Typeface.create("serif",Typeface.BOLD);paint.textAlign=Paint.Align.CENTER
         val x=box.left+margin/2+dp(1f)
         val rank=if(card>=52)if(card==53)"大" else "小" else when(val r=card/4+3){11->"J";12->"Q";13->"K";14->"A";15->"2";else->r.toString()}
-        paint.textSize=min(h*(if(compactIndex).43f else .25f),dp(30f))
+        paint.textSize=min(h*(if(compactIndex).43f else .25f),dp(if(largeIndex)40f else 30f))
         val available=margin-dp(2f)
         paint.textScaleX=min(1f,available/paint.measureText(rank))
         val baseline=box.top+dp(3f)-paint.fontMetrics.ascent
@@ -48,6 +48,10 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
         val size=min(h*(if(compactIndex).31f else .24f),margin*.88f)
         if(card>=52){paint.textSize=size;canvas.drawText("王",x,baseline+size*1.05f,paint)}
         else drawSuit(canvas,card%4,x-size/2,baseline+dp(3f),size)
+        if(card<52&&!compactIndex){
+            val pip=min(w*.47f,h*.31f)
+            drawSuit(canvas,card%4,box.right-pip-dp(5f),box.bottom-pip-dp(8f),pip)
+        }
         if(isSelected){paint.color=Color.rgb(220,151,18);canvas.drawRect(box.left,box.bottom-dp(5f),box.right,box.bottom,paint)}
     }
     private fun drawSuit(canvas:Canvas,suit:Int,x:Float,y:Float,size:Float){

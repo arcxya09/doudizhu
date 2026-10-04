@@ -33,8 +33,9 @@ jobs:
       - name: Native Android emulator acceptance
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
+          api-level: 35
           arch: x86_64
+          target: google_apis
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader -noaudio -no-boot-anim -camera-back none
@@ -47,14 +48,14 @@ jobs:
             app/build/outputs/apk/debug/app-debug.apk
             app/build/reports/
             device-results/
-      - name: Publish native v3.0.1
+      - name: Publish native v3.1.0
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if ! gh release view v3.0.1 >/dev/null 2>&1; then
-            cp app/build/outputs/apk/debug/app-debug.apk doudizhu-3.0.1-native.apk
-            gh release create v3.0.1 doudizhu-3.0.1-native.apk device-results/*.png --target "$GITHUB_SHA" --title "闲来斗地主 v3.0.1 · 经典布局版" --notes-file docs/release-v3.0.1.md --prerelease
+          if ! gh release view v3.1.0 >/dev/null 2>&1; then
+            cp app/build/outputs/apk/debug/app-debug.apk doudizhu-3.1.0-native.apk
+            gh release create v3.1.0 doudizhu-3.1.0-native.apk device-results/*.png --target "$GITHUB_SHA" --title "闲来斗地主 v3.1.0 · 挖孔屏全屏版" --notes-file docs/release-v3.1.0.md --prerelease
           else
-            gh release upload v3.0.1 device-results/*.png --clobber
+            gh release upload v3.1.0 device-results/*.png --clobber
           fi

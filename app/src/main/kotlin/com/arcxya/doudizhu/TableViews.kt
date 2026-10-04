@@ -46,8 +46,21 @@ class TableIcon(private val kind:Int,private val pixels:Int):Drawable(){
 class ReferenceTable(context:Context):ViewGroup(context){
     data class Zone(val view:View,val x:Float,val y:Float,val w:Float,val h:Float)
     private val zones=mutableListOf<Zone>()
+    private var safe=Rect()
+    override fun onApplyWindowInsets(insets:android.view.WindowInsets):android.view.WindowInsets{
+        val next=if(android.os.Build.VERSION.SDK_INT>=28)insets.displayCutout?.let{Rect(it.safeInsetLeft,it.safeInsetTop,it.safeInsetRight,it.safeInsetBottom)}?:Rect() else Rect()
+        if(next!=safe){safe=next;requestLayout()}
+        return insets
+    }
+    private fun area(view:View):Rect=if(view is TableBackdrop)Rect(0,0,measuredWidth,measuredHeight)
+        else Rect(safe.left,safe.top,measuredWidth-safe.right,measuredHeight-safe.bottom)
+
     fun place(view:View,x:Float,y:Float,w:Float,h:Float){zones.add(Zone(view,x,y,w,h));addView(view)}
-    override fun onMeasure(ws:Int,hs:Int){val w=MeasureSpec.getSize(ws);val h=MeasureSpec.getSize(hs);setMeasuredDimension(w,h)
-        for(z in zones)z.view.measure(MeasureSpec.makeMeasureSpec((w*z.w).toInt().coerceAtLeast(1),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec((h*z.h).toInt().coerceAtLeast(1),MeasureSpec.EXACTLY))}
-    override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){for(z in zones){val x=(width*z.x).toInt();val y=(height*z.y).toInt();z.view.layout(x,y,x+z.view.measuredWidth,y+z.view.measuredHeight)}}
+    override fun onMeasure(ws:Int,hs:Int){
+        setMeasuredDimension(MeasureSpec.getSize(ws),MeasureSpec.getSize(hs))
+        for(z in zones){val a=area(z.view);z.view.measure(MeasureSpec.makeMeasureSpec((a.width()*z.w).toInt().coerceAtLeast(1),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec((a.height()*z.h).toInt().coerceAtLeast(1),MeasureSpec.EXACTLY))}
+    }
+    override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){
+        for(z in zones){val a=area(z.view);val x=a.left+(a.width()*z.x).toInt();val y=a.top+(a.height()*z.y).toInt();z.view.layout(x,y,x+z.view.measuredWidth,y+z.view.measuredHeight)}
+    }
 }
