@@ -21,6 +21,7 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
     var indexWidth=0f
     var compactIndex=false
     var landlordRibbon=false
+    var showBody=true
     init {contentDescription=if(card==54) "未公开底牌" else Rules.cardName(card);isFocusable=largeIndex}
     override fun onDraw(canvas:Canvas) {
         val edge=dp(1f);val lift=if(largeIndex)dp(12f) else 0f
@@ -35,7 +36,7 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
         // Crop only the central illustration, so the original small corner indexes are not duplicated.
         val src=art.source(card);src.inset(30,42)
         val artBox=RectF(box.left+margin+dp(3f),box.top+h*.30f,box.right-dp(4f),box.bottom-dp(5f))
-        if(card>=52&&!compactIndex&&artBox.width()>0)canvas.drawBitmap(art.atlas,src,artBox,paint)
+        if(card>=52&&showBody&&!compactIndex&&artBox.width()>0)canvas.drawBitmap(art.atlas,src,artBox,paint)
         val red=card==53 || (card<52 && card%4 in listOf(1,3))
         paint.color=if(red)Color.rgb(187,30,24) else Color.rgb(21,25,23)
         paint.typeface=Typeface.create("serif",Typeface.BOLD);paint.textAlign=Paint.Align.CENTER
@@ -54,7 +55,7 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
             val size=min(h*(if(compactIndex).31f else .19f),margin*.75f)
             drawSuit(canvas,card%4,x-size/2,baseline+dp(2f),size)
         }
-        if(card<52&&!compactIndex){
+        if(card<52&&showBody&&!compactIndex&&h>dp(55f)){
             val pip=min(w*.47f,h*.31f)
             drawSuit(canvas,card%4,box.right-pip-dp(5f),box.bottom-pip-dp(8f),pip)
         }
@@ -94,7 +95,7 @@ class HandLayout(context:Context):ViewGroup(context) {
         stride=if(childCount>1)min(cw*.62f,(w-paddingLeft-paddingRight-cw).toFloat()/19f) else 0f
         start=(w-cw-stride*(childCount-1).coerceAtLeast(0))/2f
         for(i in 0 until childCount){
-            val v=getChildAt(i) as CardFace;v.indexWidth=if(childCount==1)cw*.42f else stride
+            val v=getChildAt(i) as CardFace;v.showBody=i==childCount-1;v.indexWidth=if(childCount==1)cw*.42f else stride
             v.measure(MeasureSpec.makeMeasureSpec(cw,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(h-paddingTop-paddingBottom,MeasureSpec.EXACTLY))
         }
     }

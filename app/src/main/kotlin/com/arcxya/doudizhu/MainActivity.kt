@@ -145,7 +145,7 @@ class MainActivity: Activity() {
             if(p==0)table.place(cards,.365f,.435f,.27f,.16f)
             else table.place(cards,if(p==1).16f else .55f,.25f,.29f,.18f)
         }
-        notice=label("",13f,0xffdaedff.toInt());table.place(notice,.29f,.574f,.42f,.036f)
+        notice=label("",13f,0xffdaedff.toInt());table.place(notice,.29f,.50f,.42f,.078f)
         actions=LinearLayout(this).apply{gravity=Gravity.CENTER;clipChildren=false};table.place(actions,.25f,.465f,.5f,.132f)
         hand=HandLayout(this).apply{contentDescription="我的手牌，点击或横滑选择，再点出牌";setPadding(0,dp(2),0,0)};table.place(hand,.048f,.59f,.904f,.332f)
         table.place(View(this).apply{setBackgroundColor(0x55303c69)},0f,.934f,1f,.066f)
@@ -171,7 +171,7 @@ class MainActivity: Activity() {
     private fun render(){
         stakes.text="单机${levels[game.level]}场  底分：${if(game.highBid>0)game.highBid else "—"}"
         stakes.visibility=View.VISIBLE
-        notice.visibility=View.VISIBLE
+        notice.visibility=if(game.phase=="redeal")View.VISIBLE else View.INVISIBLE
         autoButton.text=if(autoPlay)"手动" else "托管"
         fun role(p:Int)=if(game.landlord<0)"" else if(game.landlord==p)"地主" else "农民"
         for(p in 1..2){
