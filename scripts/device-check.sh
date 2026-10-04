@@ -18,10 +18,23 @@ for size in compact large largefont cutout; do
   if [ "$size" = large ]; then width=1920; height=1080; fi
   if [ "$size" = largefont ]; then font_scale=1.3; fi
   if [ "$size" = cutout ]; then
-    width=1600
-    adb shell cmd overlay enable com.android.internal.display.cutout.emulation.corner
+    # Cutout geometry is defined against the device's native portrait display.
+    # Reset wm overrides and reboot so DisplayManager reloads the overlay.
+    width=1920
+    height=1080
+    adb shell wm size reset
+    adb shell cmd overlay enable --user 0 com.android.internal.display.cutout.emulation.hole
+    adb reboot
+    adb wait-for-device
+    for attempt in $(seq 1 90); do
+      if [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = 1 ]; then break; fi
+      sleep 1
+    done
+    adb shell cmd overlay list > device-results/cutout-overlays.txt
+    adb shell dumpsys display > device-results/cutout-display.txt
+  else
+    adb shell wm size "${width}x${height}"
   fi
-  adb shell wm size "${width}x${height}"
   adb shell wm density 320
   adb shell settings put system font_scale "$font_scale"
   adb shell input keyevent KEYCODE_WAKEUP
@@ -41,4 +54,4 @@ for size in compact large largefont cutout; do
 done
 adb logcat -d -s AndroidRuntime:E > device-results/crashes.txt
 
-adb shell cmd overlay disable com.android.internal.display.cutout.emulation.corner
+adb shell cmd overlay disable com.android.internal.display.cutout.emulation.hole
