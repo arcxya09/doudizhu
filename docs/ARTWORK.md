@@ -36,3 +36,11 @@ Create a background-only landscape mobile Chinese Dou Dizhu card game illustrati
 人物提示词：
 
 A production character sprite atlas on a genuinely transparent background. Exactly three full-body original cheerful Chinese countryside cartoon people in three equal-width vertical columns, each entire body visible from head to shoes, all baseline aligned and same scale, generous transparent space between them, no overlap. Wide 3:2 image. Left column: friendly middle-aged farmer with straw hat, blue cotton vest, cream shirt, brown trousers. Middle column: friendly elderly woman with silver bun, turquoise traditional jacket, navy trousers. Right column: cheerful young adult man with short black hair, orange vest, cream shirt, brown trousers. Polished high quality soft 3D chibi mobile card game style, big expressive heads and short bodies, warm kind smiles. Relaxed standing poses, hands at sides or one hand on hip, looking slightly toward camera. No cards, no props, no text, no logos, no frames, no platform, no scenery, no ground shadows, transparent background.
+
+## v3.2 视频参考
+
+参考：用户提供的 16057.mp4，1280×588，54.23 秒。圆头像从第 2 秒分别截取 (62,154,76,76)、(1140,154,76,76)、(69,501,76,76)，保存为 app/src/main/assets/seat_left.webp、seat_right.webp、seat_self.webp。仅使用用户提供画面的局部，不下载第三方资源。
+
+蓝色桌布路径：app/src/main/assets/blue_table.webp（1600×736）。使用内置 image_gen 编辑视频参考帧。最终提示词：
+
+Use case: precise-object-edit. Input image is edit target: screenshot from user's supplied Dou Dizhu gameplay video. Produce a clean background texture plate for a native Android game, matching the screenshot background exactly as closely as possible. Preserve the same blue woven cloth, broad central lighter blue gradient, shaded dark upper corners, faint leafy shadows upper left, curved stitched hem at bottom, tiny green leaves bottom right and brown tabletop only at bottom corners. Remove ALL foreground elements: playing cards, avatars, names, text, central logo, title, coins, controls, timers, buttons, footer strips, promotional overlays, mini-program capsule, icons. Reconstruct just the blue cloth underneath. No text or logo anywhere. Maintain original very wide 1280:588 framing and original colors; do not add new decorative elements. Flat 2D texture asset, not a device mockup.

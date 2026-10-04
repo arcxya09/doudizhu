@@ -20,15 +20,16 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
     private fun dp(v:Float)=v*resources.displayMetrics.density
     var indexWidth=0f
     var compactIndex=false
+    var landlordRibbon=false
     init {contentDescription=if(card==54) "未公开底牌" else Rules.cardName(card);isFocusable=largeIndex}
     override fun onDraw(canvas:Canvas) {
-        val edge=dp(2f);val lift=if(largeIndex)dp(12f) else 0f
+        val edge=dp(1f);val lift=if(largeIndex)dp(12f) else 0f
         val h=min(height-edge*2-lift,(width-edge*2)*1.5f)
         val w=h/1.5f;val top=height-edge-h-if(isSelected)lift else 0f
         val box=RectF((width-w)/2,top,(width+w)/2,top+h)
-        paint.style=Paint.Style.FILL;paint.color=if(isSelected)Color.rgb(255,199,56) else Color.rgb(191,181,155)
+        paint.style=Paint.Style.FILL;paint.color=if(isSelected)Color.rgb(255,199,56) else Color.rgb(190,192,197)
         canvas.drawRoundRect(RectF(box.left-edge,box.top-edge,box.right+edge,box.bottom+edge),dp(5f),dp(5f),paint)
-        paint.color=Color.rgb(255,255,252);canvas.drawRoundRect(box,dp(4f),dp(4f),paint)
+        paint.shader=LinearGradient(box.left,box.top,box.right,box.bottom,Color.WHITE,0xffdedede.toInt(),Shader.TileMode.CLAMP);canvas.drawRoundRect(box,dp(3f),dp(3f),paint);paint.shader=null
         if(card==54) {canvas.drawBitmap(art.atlas,art.source(card),box,paint);return}
         val margin=min(if(indexWidth>0)indexWidth-dp(3f) else w*.42f,w*.48f).coerceAtLeast(dp(10f))
         // Crop only the central illustration, so the original small corner indexes are not duplicated.
@@ -39,18 +40,27 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
         paint.color=if(red)Color.rgb(187,30,24) else Color.rgb(21,25,23)
         paint.typeface=Typeface.create("serif",Typeface.BOLD);paint.textAlign=Paint.Align.CENTER
         val x=box.left+margin/2+dp(1f)
-        val rank=if(card>=52)if(card==53)"大" else "小" else when(val r=card/4+3){11->"J";12->"Q";13->"K";14->"A";15->"2";else->r.toString()}
-        paint.textSize=min(h*(if(compactIndex).43f else .25f),dp(if(largeIndex)40f else 30f))
+        val rank=when(val r=card/4+3){11->"J";12->"Q";13->"K";14->"A";15->"2";else->r.toString()}
         val available=margin-dp(2f)
-        paint.textScaleX=min(1f,available/paint.measureText(rank))
-        val baseline=box.top+dp(3f)-paint.fontMetrics.ascent
-        canvas.drawText(rank,x,baseline,paint);paint.textScaleX=1f
-        val size=min(h*(if(compactIndex).31f else .24f),margin*.88f)
-        if(card>=52){paint.textSize=size;canvas.drawText("王",x,baseline+size*1.05f,paint)}
-        else drawSuit(canvas,card%4,x-size/2,baseline+dp(3f),size)
+        if(card>=52){
+            paint.textSize=min(h*.155f,available*1.25f)
+            val dy=min(h*.145f,paint.textSize*1.05f)
+            "JOKER".forEachIndexed{i,ch->canvas.drawText(ch.toString(),x,box.top+dp(2f)-paint.fontMetrics.ascent+i*dy,paint)}
+        }else{
+            paint.textSize=min(h*(if(compactIndex).43f else .25f),dp(if(largeIndex)40f else 30f))
+            paint.textScaleX=min(1f,available/paint.measureText(rank))
+            val baseline=box.top+dp(3f)-paint.fontMetrics.ascent
+            canvas.drawText(rank,x,baseline,paint);paint.textScaleX=1f
+            val size=min(h*(if(compactIndex).31f else .19f),margin*.75f)
+            drawSuit(canvas,card%4,x-size/2,baseline+dp(2f),size)
+        }
         if(card<52&&!compactIndex){
             val pip=min(w*.47f,h*.31f)
             drawSuit(canvas,card%4,box.right-pip-dp(5f),box.bottom-pip-dp(8f),pip)
+        }
+        if(landlordRibbon){
+            val sz=w*.46f;paint.color=0xffffa92b.toInt();val triangle=Path().apply{moveTo(box.right-sz,box.top);lineTo(box.right,box.top);lineTo(box.right,box.top+sz);close()};canvas.drawPath(triangle,paint)
+            canvas.save();canvas.rotate(45f,box.right-sz*.32f,box.top+sz*.32f);paint.color=Color.WHITE;paint.typeface=Typeface.DEFAULT_BOLD;paint.textSize=sz*.25f;canvas.drawText("地主",box.right-sz*.32f,box.top+sz*.4f,paint);canvas.restore()
         }
         if(isSelected){paint.color=Color.rgb(220,151,18);canvas.drawRect(box.left,box.bottom-dp(5f),box.right,box.bottom,paint)}
     }
@@ -81,7 +91,7 @@ class HandLayout(context:Context):ViewGroup(context) {
     override fun onMeasure(ws:Int,hs:Int){
         val w=MeasureSpec.getSize(ws);val h=MeasureSpec.getSize(hs);setMeasuredDimension(w,h)
         val cw=min(((h-paddingTop-paddingBottom-16*resources.displayMetrics.density)/1.5f).toInt()+4,(w*.32f).toInt()).coerceAtLeast(1)
-        stride=if(childCount>1)min(cw*.70f,(w-paddingLeft-paddingRight-cw).toFloat()/(childCount-1)) else 0f
+        stride=if(childCount>1)min(cw*.62f,(w-paddingLeft-paddingRight-cw).toFloat()/19f) else 0f
         start=(w-cw-stride*(childCount-1).coerceAtLeast(0))/2f
         for(i in 0 until childCount){
             val v=getChildAt(i) as CardFace;v.indexWidth=if(childCount==1)cw*.42f else stride

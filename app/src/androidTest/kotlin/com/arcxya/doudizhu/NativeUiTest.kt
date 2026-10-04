@@ -164,7 +164,7 @@ class NativeUiTest {
                 assertTrue("Readable exposed index",activity.hand.exposedBounds(i).width() >= 22 * context.resources.displayMetrics.density - 1)
                 if(i>0)assertTrue("Cards overlap", v.left < activity.hand.getChildAt(i-1).right)
             }
-            assertTrue("Hand begins to the right of player character",activity.hand.left >= decor.width*.16f)
+            assertTrue("Hand spans reference table",activity.hand.width >= decor.width*.80f)
             assertTrue("Hand follows lower reference band",activity.hand.top >= decor.height*.57f && activity.hand.bottom <= decor.height*.93f)
             assertTrue("Actions in central table",activity.actions.top >= decor.height*.43f && activity.actions.bottom <= decor.height*.63f)
             val actionRect = Rect()
@@ -174,6 +174,10 @@ class NativeUiTest {
                 assertTrue("Opponent text clipped: ${v.text}", v.layout != null &&
                     v.layout.getLineBottom(v.lineCount - 1) <= v.height - v.compoundPaddingTop - v.compoundPaddingBottom)
             }
+            assertEquals("Three round portraits",3,all(decor).filterIsInstance<SeatAvatar>().size)
+            assertEquals("Counter shows only aggregate opponent ranks",activity.game.hands[1].size+activity.game.hands[2].size,all(decor).filterIsInstance<RankCounter>().single().counts.sum())
+            val labels=all(decor).filterIsInstance<TextView>().map{it.text.toString()}
+            assertTrue("No online modules",labels.none{it in listOf("商城","聊天","回归礼遇","任务","排行榜","充值")})
             assertFalse(all(decor).filterIsInstance<Button>().first { it.text == "出牌" }.isEnabled)
         }
         val dir = File(context.getExternalFilesDir(null), "screenshots").apply { mkdirs() }

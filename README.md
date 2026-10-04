@@ -1,8 +1,8 @@
 # 闲来斗地主 — Kotlin 原生 Android 版
 
-v3.1.0 使用 Kotlin 原生风景牌桌：按用户提供的参考截图重排：左右站立人物、三家独立出牌区、中央操作区、左下角自己角色、底部单排手牌与计分栏。无 HTML/CSS/JavaScript，无浏览器内核，无联网权限，无账号、广告或内购。
+v3.2.0 使用 Kotlin 原生蓝色布面牌桌，按用户提供的 16057.mp4 重排：两侧圆头像、三家出牌区、橙色与蓝紫色操作按钮、底部居中叠放手牌、上方本地记牌器。删除商城、礼包、聊天、在线段位等模块。无 HTML/CSS/JavaScript、无浏览器内核、无联网权限。
 
-[下载安装包](https://github.com/arcxya09/doudizhu/releases/tag/v3.1.0) · Android 8.0 及以上。
+[下载安装包](https://github.com/arcxya09/doudizhu/releases/tag/v3.2.0) · Android 8.0 及以上。
 
 ## 实现
 

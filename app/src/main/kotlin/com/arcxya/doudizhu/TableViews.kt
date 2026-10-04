@@ -10,19 +10,58 @@ import kotlin.math.min
 /** All scene art is packaged locally. Positions are normalized against the supplied landscape reference. */
 class TableBackdrop(context:Context):View(context){
     private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private val bitmap=context.assets.open("classic_table.webp").use{BitmapFactory.decodeStream(it)}
+    private val bitmap=context.assets.open("blue_table.webp").use{BitmapFactory.decodeStream(it)}
     override fun onDraw(canvas:Canvas){canvas.drawBitmap(bitmap,null,RectF(0f,0f,width.toFloat(),height.toFloat()),paint)}
 }
-class CharacterView(context:Context,private val atlas:Bitmap,private val person:Int):View(context){
+/** Small circular portraits replace the full-body courtyard characters. */
+class SeatAvatar(context:Context,asset:String):View(context){
     private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val bitmap=context.assets.open(asset).use{BitmapFactory.decodeStream(it)}
     var active=false;set(value){field=value;invalidate()}
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
-    override fun onDraw(canvas:Canvas){
-        val tile=atlas.width/3
-        val w=min(width.toFloat(),height*(if(person==2).78f else .58f));val x=(width-w)/2
-        if(active){paint.color=0x90fff09c.toInt();canvas.drawOval(RectF(x,height*.85f,x+w,height*.99f),paint)}
-        paint.color=Color.WHITE
-        canvas.drawBitmap(atlas,Rect(person*tile,0,(person+1)*tile,if(person==2)(atlas.height*.67f).toInt() else atlas.height),RectF(x,0f,x+w,height.toFloat()),paint)
+    override fun onDraw(c:Canvas){
+        val d=resources.displayMetrics.density;val radius=min(width,height)/2f-3*d
+        val x=width/2f;val y=height/2f
+        paint.style=Paint.Style.FILL;paint.color=0x60304a78;c.drawCircle(x,y,radius+3*d,paint)
+        c.save();c.clipPath(Path().apply{addCircle(x,y,radius,Path.Direction.CW)})
+        paint.color=Color.WHITE;c.drawBitmap(bitmap,null,RectF(x-radius,y-radius,x+radius,y+radius),paint);c.restore()
+        paint.style=Paint.Style.STROKE;paint.strokeWidth=2*d;paint.color=if(active)0xffffd878.toInt() else Color.WHITE
+        c.drawCircle(x,y,radius,paint);paint.style=Paint.Style.FILL
+    }
+}
+/** Gold alarm-clock frame from the reference, without a time limit on the player. */
+class TurnClock(context:Context,private val value:String):View(context){
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+    override fun onDraw(c:Canvas){
+        val size=min(width.toFloat(),height*.84f);val x=width/2f;val y=height/2f+size*.025f;val r=size*.38f
+        p.color=0xffd9e6eb.toInt();c.drawOval(RectF(x-r*1.05f,y-r*1.22f,x-r*.35f,y-r*.63f),p);c.drawOval(RectF(x+r*.35f,y-r*1.22f,x+r*1.05f,y-r*.63f),p)
+        p.color=0xff977537.toInt();c.drawCircle(x,y+size*.03f,r*1.13f,p)
+        p.shader=LinearGradient(x,y-r,x,y+r,intArrayOf(0xffffe87c.toInt(),0xffffbd16.toInt(),0xffe9900d.toInt()),null,Shader.TileMode.CLAMP)
+        c.drawCircle(x,y,r,p);p.shader=null;p.style=Paint.Style.STROKE;p.strokeWidth=size*.032f;p.color=0xfffff3bf.toInt();c.drawCircle(x,y,r*.89f,p);p.style=Paint.Style.FILL
+        p.typeface=Typeface.create("sans-serif",Typeface.BOLD);p.textSize=r*1.27f;p.textAlign=Paint.Align.CENTER;p.color=Color.WHITE
+        c.drawText(value,x,y-(p.fontMetrics.ascent+p.fontMetrics.descent)/2,p)
+    }
+}
+/** Aggregate unknown ranks only: equivalent to the deck minus own hand and public plays. */
+class RankCounter(context:Context):View(context){
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+    internal var counts=IntArray(15);private var ready=false
+    private val ranks=listOf("大王","小王","2","A","K","Q","J","10","9","8","7","6","5","4","3")
+    fun show(game:Game){
+        ready=game.landlord>=0;counts=IntArray(15)
+        if(ready)for(card in game.hands.drop(1).flatten()){val index=if(card==53)0 else if(card==52)1 else 17-(card/4+3);counts[index]++}
+        contentDescription=if(ready)"记牌器，其他两家未出牌合计："+ranks.indices.joinToString("，"){"${ranks[it]} ${counts[it]}张"} else "记牌器，叫地主后显示"
+        invalidate()
+    }
+    override fun onDraw(c:Canvas){
+        val cell=width/15f
+        p.color=0xfff2f0e7.toInt();c.drawRoundRect(RectF(0f,0f,width.toFloat(),height.toFloat()),4f,4f,p)
+        p.typeface=Typeface.create("sans-serif",Typeface.NORMAL);p.textAlign=Paint.Align.CENTER
+        for(i in ranks.indices){
+            p.color=0xffd2d1ca.toInt();p.strokeWidth=1f;c.drawLine(i*cell,0f,i*cell,height.toFloat(),p)
+            p.textSize=min(height*.32f,cell*(if(i<2).43f else .77f));p.color=0xff555963.toInt();c.drawText(ranks[i],(i+.5f)*cell,height*.4f,p)
+            p.textSize=min(height*.34f,cell*.76f);p.color=if(ready&&counts[i]>0)0xffbe803c.toInt() else 0xffc9c4bb.toInt();c.drawText(if(ready)counts[i].toString() else "–",(i+.5f)*cell,height*.88f,p)
+        }
     }
 }
 /** Native icons above the compact toolbar captions. */
@@ -38,8 +77,8 @@ class TableIcon(private val kind:Int,private val pixels:Int):Drawable(){
             0->{c.drawRoundRect(RectF(5f,8f,27f,27f),4f,4f,p);c.drawLine(16f,2f,16f,8f,p);c.drawCircle(11f,16f,1.5f,p);c.drawCircle(21f,16f,1.5f,p);c.drawLine(11f,23f,21f,23f,p)}
             1->{c.drawRoundRect(RectF(5f,4f,20f,26f),2f,2f,p);c.drawRoundRect(RectF(12f,8f,27f,30f),2f,2f,p)}
             2->{val q=Path();q.moveTo(5f,12f);q.lineTo(11f,12f);q.lineTo(19f,5f);q.lineTo(19f,27f);q.lineTo(11f,20f);q.lineTo(5f,20f);q.close();c.drawPath(q,p);c.drawArc(RectF(13f,8f,29f,25f),-60f,120f,false,p)}
-            4->{p.strokeWidth=4f;c.drawLine(22f,4f,10f,16f,p);c.drawLine(10f,16f,22f,28f,p);p.strokeWidth=2.5f}
-            else->{for(y in listOf(7f,16f,25f)){c.drawLine(4f,y,28f,y,p)};c.drawCircle(11f,7f,3f,p);c.drawCircle(23f,16f,3f,p);c.drawCircle(13f,25f,3f,p)}
+            4->{c.drawRect(RectF(7f,3f,26f,29f),p);c.drawLine(17f,16f,31f,16f,p);c.drawLine(17f,16f,23f,10f,p);c.drawLine(17f,16f,23f,22f,p);p.style=Paint.Style.FILL;c.drawPath(Path().apply{moveTo(3f,2f);lineTo(13f,5f);lineTo(13f,27f);lineTo(3f,30f);close()},p);p.style=Paint.Style.STROKE}
+            else->{p.style=Paint.Style.FILL;for(x in listOf(4f,18f))for(y in listOf(3f,17f))c.drawRoundRect(RectF(x,y,x+10f,y+10f),2f,2f,p);p.style=Paint.Style.STROKE}
         };c.restore()
     }
 }
