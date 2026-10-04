@@ -69,13 +69,20 @@
       "rms": 0.04428663775295758
     },
     "bid": {
-      "source_seconds": [
-        7.825,
-        8.665
+      "source_sha256": "5ca962bc8a0ab06d55200b83523ed7c8e154e97632064cc9778c633bb4e6e569",
+      "source_duration_seconds": 1.5873015873015872,
+      "retained_source_seconds": [
+        0.0508843537414966,
+        1.5873015873015872
       ],
-      "duration_seconds": 0.84,
-      "peak": 0.65,
-      "rms": 0.0553517615306346
+      "duration_ms": 1536,
+      "peak": 0.82,
+      "gain": 1.6541694546140127,
+      "output_sha256": "f4eab160a625b986362289416c33ea60837d4f50e66e58948e6be102bc40b01d",
+      "title": "叫地主音效",
+      "page": "https://m.sc.chinaz.com/yinxiao/150929492982.html",
+      "downloaded_from": "https://downsc.chinaz.net/Files/DownLoad/sound1/201509/6401.wav",
+      "source_type": "website_short_effect"
     },
     "bid_pass": {
       "source_seconds": [
@@ -124,13 +131,20 @@
       "rms": 0.12000000000000001
     },
     "airplane": {
-      "source_seconds": [
-        23.82,
-        26.19
+      "source_sha256": "fe4791cfd1ffc85312ac135385620bdac8dbaad42fcc998181944e8d57c66f5b",
+      "source_duration_seconds": 1.5873015873015872,
+      "retained_source_seconds": [
+        0.06875283446712017,
+        1.5873015873015872
       ],
-      "duration_seconds": 2.3699773242630386,
-      "peak": 0.5251222118201875,
-      "rms": 0.07065205360491159
+      "duration_ms": 1519,
+      "peak": 0.82,
+      "gain": 0.9664161189182149,
+      "output_sha256": "4b13584667d1e5ef76362bf8fb8b71a951e3ed84dc5ae35c7880bd235bf1ec66",
+      "title": "欢乐斗地主飞机音效",
+      "page": "https://m.sc.chinaz.com/yinxiao/150204155871.html",
+      "downloaded_from": "https://downsc.chinaz.net/Files/DownLoad/sound1/201502/5468.wav",
+      "source_type": "website_short_effect"
     },
     "bomb": {
       "source_seconds": [
@@ -142,13 +156,20 @@
       "rms": 0.08133984629753988
     },
     "rocket": {
-      "source_seconds": [
-        46.56,
-        49.42
+      "source_sha256": "7a8999c215647889d88493ed7e58bdcac2a64f560b734072e0a3f110443e1f8a",
+      "source_duration_seconds": 2.7210430839002266,
+      "retained_source_seconds": [
+        0.0,
+        2.7210430839002266
       ],
-      "duration_seconds": 2.86,
-      "peak": 0.65,
-      "rms": 0.11364271251826337
+      "duration_ms": 2721,
+      "peak": 0.82,
+      "gain": 0.3969958269217739,
+      "output_sha256": "fe84f8af50c26facbf28b2a5c452753240f12e75f2901573ba2c8148d0e2d6af",
+      "title": "欢乐斗地主王炸音效",
+      "page": "https://m.sc.chinaz.com/yinxiao/150923301382.html",
+      "downloaded_from": "https://downsc.chinaz.net/Files/DownLoad/sound1/201509/6377.mp3",
+      "source_type": "website_short_effect"
     },
     "win": {
       "source_seconds": [
@@ -158,6 +179,38 @@
       "duration_seconds": 2.5099773242630388,
       "peak": 0.65,
       "rms": 0.07954656347707335
+    },
+    "deal": {
+      "source_sha256": "14ab07eb0e1f3cc1897cbc56c5ebe7b521f086b08e09498e81a5c92a696ebb5b",
+      "source_duration_seconds": 3.814965986394558,
+      "retained_source_seconds": [
+        0.0,
+        3.814965986394558
+      ],
+      "duration_ms": 3815,
+      "peak": 0.82,
+      "gain": 1.0922813226898767,
+      "output_sha256": "9eb8126fa90288d8ba88af6cf8b87d5b257a95661d0dcbeb7d1265a073da4f75",
+      "title": "欢乐斗地主洗牌音效",
+      "page": "https://m.sc.chinaz.com/yinxiao/151001074680.html",
+      "downloaded_from": "https://downsc.chinaz.net/Files/DownLoad/sound1/201509/6407.mp3",
+      "source_type": "website_short_effect"
+    },
+    "cannot_beat": {
+      "source_sha256": "5e89cba1f38c687c5833d4e6fc936981685e580303d6ffdf05dbfb01ad9f0a41",
+      "source_duration_seconds": 1.1337868480725624,
+      "retained_source_seconds": [
+        0.05623582766439909,
+        1.1337868480725624
+      ],
+      "duration_ms": 1078,
+      "peak": 0.82,
+      "gain": 0.7224803975845543,
+      "output_sha256": "ca93abbe3f1b12e5dc4fb2971cae21fefbec80426181c3ae3f87968a18202fe7",
+      "title": "斗地主要不起音效",
+      "page": "https://m.sc.chinaz.com/yinxiao/170809479030.html",
+      "downloaded_from": "https://downsc.chinaz.net/Files/DownLoad/sound1/201708/9039.wav",
+      "source_type": "website_short_effect"
     }
   }
 }

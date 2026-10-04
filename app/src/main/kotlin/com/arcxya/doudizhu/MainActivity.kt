@@ -2,6 +2,8 @@ package com.arcxya.doudizhu
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.Intent
+import android.content.ActivityNotFoundException
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -73,7 +75,8 @@ class MainActivity: Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         immersive()
         nextLevel=settings.getInt("level",1).coerceIn(0,2);speed=settings.getLong("speed",1800L).coerceIn(1000L,2800L)
-        restore();game.last?.let{seatMoves[game.lastPlayer]=it.cards};art=CardArt(this);audio=AudioEngine(this);buildLayout();render()
+        val restored=restore();game.last?.let{seatMoves[game.lastPlayer]=it.cards};art=CardArt(this);audio=AudioEngine(this);buildLayout();render()
+        if(!restored)audio.requestDeal()
     }
     @Suppress("DEPRECATION")
     private fun immersive(){
@@ -212,20 +215,12 @@ class MainActivity: Activity() {
         selection.text=if(selected.isEmpty())if(game.phase=="over")"本局 ${game.delta}" else "" else "已选 ${selected.size} 张 · ${m?.kind?.title?:"牌型不完整"}${if(m!=null&&!valid)" · 压不过上家" else ""}"
         playButton?.let{buttonEnabled(it,selected.isNotEmpty()&&valid)}
     }
-    private fun humanBid(n:Int){if(game.turn!=0||game.phase!="bid")return;game.bid(n);audio.cue(if(n>0)"bid" else "select");advance()}
+    private fun humanBid(n:Int){if(game.turn!=0||game.phase!="bid")return;game.bid(n);audio.cue(AudioCues.forBid(n));advance()}
     private fun humanPlay(cards:List<Int>){
         if(game.turn!=0||game.phase!="play")return
         if(cards.isEmpty()&&selected.isNotEmpty()){selection.text="已经选牌，请先点“重选”再不出";audio.cue("error");return}
-        try{playCards(cards);selected.clear();audio.cue(moveSound(if(cards.isEmpty())null else game.last));advance()}
+        try{val cue=AudioCues.forMove(Rules.classify(cards),game.hands[game.turn],game.last);playCards(cards);selected.clear();audio.cue(cue);advance()}
         catch(e:IllegalArgumentException){selection.text=e.message;audio.cue("error")}
-    }
-    private fun moveSound(move:Move?):String=when(move?.kind){
-        null->"pass"
-        Kind.BOMB->"bomb"
-        Kind.ROCKET->"rocket"
-        Kind.PLANE_SINGLE,Kind.PLANE_PAIR->"airplane"
-        Kind.PAIR->when(move.key){13->"pair_k";14->"pair_a";15->"pair_2";else->"play"}
-        else->"play"
     }
     private fun hint(){val m=Rules.ai(game.hands[0],game.last,0,game.landlord,game.lastPlayer,game.hands.map{it.size},2);selected.clear();m?.cards?.let{selected.addAll(it)};render();if(m==null)selection.text=if(Rules.moves(game.hands[0],game.last).isEmpty())"没有能压过的牌，请点“不出”" else "建议让农民队友继续出牌"}
     private fun advance(){
@@ -240,8 +235,8 @@ class MainActivity: Activity() {
         if(game.turn==0&&!autoPlay)return
         handler.postDelayed({
             if(!running||modal)return@postDelayed
-            if(game.phase=="bid"){val bid=Rules.bid(game.hands[game.turn],game.highBid,game.level);game.bid(bid);audio.cue(if(bid>0)"bid" else "select")}
-            else if(game.phase=="play"){val m=game.computer();playCards(m?.cards?:emptyList());audio.cue(moveSound(m))}
+            if(game.phase=="bid"){val bid=Rules.bid(game.hands[game.turn],game.highBid,game.level);game.bid(bid);audio.cue(AudioCues.forBid(bid))}
+            else if(game.phase=="play"){val m=game.computer();val cue=AudioCues.forMove(m,game.hands[game.turn],game.last);playCards(m?.cards?:emptyList());audio.cue(cue)}
             advance()
         },speed)
     }
@@ -256,7 +251,7 @@ class MainActivity: Activity() {
         if(newTrick||game.last==null)seatMoves=Array(3){emptyList()}
         seatMoves[actor]=cards.toList()
     }
-    private fun fresh(){handler.removeCallbacksAndMessages(null);seatMoves=Array(3){emptyList()};game=Game.create(nextLevel);selected.clear();persist();render();schedule()}
+    private fun fresh(){handler.removeCallbacksAndMessages(null);seatMoves=Array(3){emptyList()};game=Game.create(nextLevel);selected.clear();persist();render();audio.requestDeal();schedule()}
     private fun showResult(){
         if(modal)return;modal=true;handler.removeCallbacksAndMessages(null)
         val message="${if(game.winner==game.landlord)"地主" else "农民"}获胜${if(game.spring)" · 春天 / 反春天" else ""}\n${game.multiplier} 倍 · 本局 ${if(game.delta>0)"+" else ""}${game.delta} 分\n\n"+(1..2).joinToString("\n"){p->"${names[p]}剩余："+game.hands[p].joinToString(" "){Rules.cardName(it)}}
@@ -282,6 +277,21 @@ class MainActivity: Activity() {
         fun applySound(){audio.configure(music.isChecked,effects.isChecked,volume.progress)}
         music.setOnCheckedChangeListener{_,_->applySound()};effects.setOnCheckedChangeListener{_,_->applySound()}
         volume.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{override fun onProgressChanged(s:SeekBar?,p:Int,user:Boolean){if(user)applySound()};override fun onStartTrackingTouch(s:SeekBar?){};override fun onStopTrackingTouch(s:SeekBar?){audio.cue("play")}})
+        val musicName=text("",17f).apply{gravity=Gravity.START;maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,dp(8),0,dp(4))}
+        content.addView(musicName)
+        val musicButtons=LinearLayout(this).apply{gravity=Gravity.CENTER}
+        val chooseMusic=button("选择本地音乐",true){chooseLocalMusic()}
+        val defaultMusic=button("恢复默认"){audio.restoreDefaultMusic{result->if(!isFinishing&&!isDestroyed)Toast.makeText(this,result.message,Toast.LENGTH_LONG).show()}}
+        musicButtons.addView(chooseMusic,LinearLayout.LayoutParams(0,dp(54),1f))
+        musicButtons.addView(defaultMusic,LinearLayout.LayoutParams(0,dp(54),1f))
+        content.addView(musicButtons)
+        content.addView(text("选择手机里的音频，导入后可离线播放（最大 32 MB）。",15f).apply{gravity=Gravity.START;setPadding(0,0,0,dp(8))})
+        fun refreshMusic(){
+            musicName.text=if(audio.isMusicBusy)"正在处理音乐…" else "当前音乐：${audio.currentMusicName}"
+            buttonEnabled(chooseMusic,!audio.isMusicBusy)
+            buttonEnabled(defaultMusic,!audio.isMusicBusy&&audio.hasCustomMusic)
+        }
+        audio.onMusicChanged={if(!isFinishing&&!isDestroyed)refreshMusic()};refreshMusic()
         content.addView(text("本地战绩：$wins 胜 / $games 局 · $score 分",16f))
         content.addView(text("下一局难度",20f,gold));val difficulty=RadioGroup(this).apply{orientation=RadioGroup.HORIZONTAL;gravity=Gravity.CENTER}
         levels.forEachIndexed{i,label->difficulty.addView(RadioButton(this).apply{id=100+i;text=label;textSize=18f;setTextColor(Color.WHITE);minHeight=dp(48);isChecked=nextLevel==i})};difficulty.check(100+nextLevel)
@@ -292,12 +302,25 @@ class MainActivity: Activity() {
         val scroll=ScrollView(this).apply{addView(content)}
         var restartAfterDismiss=false
         val dialog=AlertDialog.Builder(this).setTitle("声音与牌桌设置").setView(scroll).setPositiveButton("返回牌局",null).setNeutralButton("重新开局"){_,_->restartAfterDismiss=true}.create()
-        dialog.setOnDismissListener{if(restartAfterDismiss)confirmRestart() else {modal=false;schedule()}};dialog.show();dialog.window?.setBackgroundDrawable(background(0xff283e78.toInt(),0xff769cda.toInt()))
+        dialog.setOnDismissListener{audio.onMusicChanged=null;if(restartAfterDismiss)confirmRestart() else {modal=false;schedule()}};dialog.show();dialog.window?.setBackgroundDrawable(background(0xff283e78.toInt(),0xff769cda.toInt()))
     }
     private fun confirmRestart(){modal=true;handler.removeCallbacksAndMessages(null);AlertDialog.Builder(this).setTitle("重新发牌？").setMessage("当前牌局不计入战绩。").setPositiveButton("重新开局"){_,_->fresh()}.setNegativeButton("继续本局",null).create().apply{setOnDismissListener{modal=false;schedule()};show()}}
-    private fun restore(){
-        try{val saved=ObjectInputStream(AtomicFile(File(filesDir,"native-table-v2")).openRead()).use{it.readObject() as SavedTable};game=saved.game;games=saved.games;wins=saved.wins;score=saved.score}
-        catch(_:Exception){game=Game.create(nextLevel)}
+    private fun chooseLocalMusic(){
+        if(audio.isMusicBusy)return
+        val intent=Intent(Intent.ACTION_OPEN_DOCUMENT).apply{addCategory(Intent.CATEGORY_OPENABLE);type="audio/*";putExtra(Intent.EXTRA_LOCAL_ONLY,true);addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)}
+        try{startActivityForResult(intent,401)}
+        catch(_:ActivityNotFoundException){Toast.makeText(this,"手机上没有可用的文件选择器",Toast.LENGTH_LONG).show()}
+    }
+    @Deprecated("Android platform result callback")
+    override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent?){
+        super.onActivityResult(requestCode,resultCode,data)
+        if(requestCode==401&&resultCode==RESULT_OK){
+            data?.data?.let{uri->audio.importMusic(uri){result->if(!isFinishing&&!isDestroyed)Toast.makeText(this,result.message,Toast.LENGTH_LONG).show()}}
+        }
+    }
+    private fun restore():Boolean{
+        return try{val saved=ObjectInputStream(AtomicFile(File(filesDir,"native-table-v2")).openRead()).use{it.readObject() as SavedTable};game=saved.game;games=saved.games;wins=saved.wins;score=saved.score;true}
+        catch(_:Exception){game=Game.create(nextLevel);false}
     }
     private fun persist(){
         val file=AtomicFile(File(filesDir,"native-table-v2"));var out:FileOutputStream?=null

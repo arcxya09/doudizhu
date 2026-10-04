@@ -45,7 +45,7 @@ for size in compact large largefont wide cutout; do
   adb shell am instrument -w -r \
     -e expectedCutout "$([ "$size" = cutout ] && echo true || echo false)" -e expectedWidth "$width" -e expectedHeight "$height" -e expectedFontScale "$font_scale" \
     com.arcxya.doudizhu.test/androidx.test.runner.AndroidJUnitRunner | tee "device-results/$size-tests.txt"
-  for frame in table selected played long-play three-seats bidding; do
+  for frame in table selected played long-play three-seats bidding settings; do
     adb pull "/sdcard/Android/data/com.arcxya.doudizhu/files/screenshots/native-$frame.png" "device-results/native-$size-$frame.png" 2>/dev/null || true
   done
   adb pull "/sdcard/Android/data/com.arcxya.doudizhu/files/screenshots/native-audio.txt" "device-results/$size-audio.txt" 2>/dev/null || true

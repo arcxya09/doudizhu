@@ -6,32 +6,49 @@ import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.SoundPool
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import java.io.InputStream
+import java.util.concurrent.Executors
 
-/** Offline recordings extracted from the reference video; no generated tones. */
-class AudioEngine(private val context: Context) {
+/** All sounds are bundled or copied from a file explicitly chosen on this device. */
+class AudioEngine(context: Context) {
+    private val context = context.applicationContext
     private val prefs = context.getSharedPreferences("settings", 0)
     var music = prefs.getBoolean("music", true); private set
     var effects = prefs.getBoolean("effects", true); private set
     var volume = prefs.getInt("volume", 45); private set
+    var isMusicBusy = true; private set
+    val currentMusicName get() = currentSelection?.name ?: "默认背景音乐"
+    val hasCustomMusic get() = currentSelection != null
+    var onMusicChanged: (() -> Unit)? = null
     private var active = false
     private var focused = false
-    private var released = false
+    @Volatile private var released = false
     private var ducked = false
+    private var pendingDeal = false
+    private var lastCue: String? = null
     private var foregroundStream = 0
     private val streams = mutableSetOf<Int>()
     private val handler = Handler(Looper.getMainLooper())
+    private val store = LocalMusicStore(this.context)
+    private var currentSelection: LocalMusicStore.Selection? = null
+    private var pendingPlayer: MediaPlayer? = null
+    private var preparationTimeout: Runnable? = null
     private val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME)
         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
     private val manager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
         .setAudioAttributes(attrs).setOnAudioFocusChangeListener({ change ->
-            focused = change == AudioManager.AUDIOFOCUS_GAIN
-            if (!focused) stopCues()
-            syncMusic()
-        }, Handler(Looper.getMainLooper())).build()
+            if (!released) {
+                focused = change == AudioManager.AUDIOFOCUS_GAIN
+                if (!focused) stopCues()
+                syncMusic()
+                flushDeal()
+            }
+        }, handler).build()
     private var player: MediaPlayer? = null
     private val pool = SoundPool.Builder().setMaxStreams(4).setAudioAttributes(
         AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME)
@@ -42,29 +59,145 @@ class AudioEngine(private val context: Context) {
 
     init {
         pool.setOnLoadCompleteListener { _, id, status ->
-            if (status == 0) loaded.add(id) else Log.w("OfflineAudio", "Cue load failed: $id/$status")
+            if (!released) {
+                if (status == 0) loaded.add(id) else Log.w("OfflineAudio", "Cue load failed: $id/$status")
+                flushDeal()
+            }
         }
         CUE_DURATIONS.keys.forEach { name ->
             try {
                 context.assets.openFd("audio/$name.wav").use { cues[name] = pool.load(it, 1) }
-            } catch (error: Exception) {
-                Log.w("OfflineAudio", "Cannot load bundled cue $name", error)
+            } catch (error: Exception) { Log.w("OfflineAudio", "Cannot load bundled cue $name", error) }
+        }
+        FILE_WORKER.execute {
+            val saved = store.read()
+            handler.post {
+                if (!released) loadInitialMusic(saved)
             }
         }
+    }
+
+    private fun loadInitialMusic(saved: LocalMusicStore.Selection?) {
+        prepareCandidate(saved, { adopt(it, saved) }, {
+            if (saved != null) loadInitialMusic(null)
+            else { isMusicBusy = false; onMusicChanged?.invoke() }
+        })
+    }
+
+    data class MusicImportResult(val success: Boolean, val message: String)
+
+    fun importMusic(uri: Uri, onResult: (MusicImportResult) -> Unit) {
+        beginImport({ store.stage(uri) }, onResult)
+    }
+
+    /** Streams are consumed and closed on the file worker, including failure paths. */
+    internal fun importMusic(input: InputStream, displayName: String, onResult: (MusicImportResult) -> Unit) {
+        if (released || isMusicBusy) {
+            FILE_WORKER.execute { runCatching { input.close() } }
+            if (!released) onResult(MusicImportResult(false, "音乐正在处理，请稍候"))
+            return
+        }
+        beginImport({ store.stage(input, displayName) }, onResult)
+    }
+
+    private fun beginImport(stage: () -> LocalMusicStore.Selection, onResult: (MusicImportResult) -> Unit) {
+        if (released) return
+        if (isMusicBusy) { onResult(MusicImportResult(false, "音乐正在处理，请稍候")); return }
+        isMusicBusy = true; onMusicChanged?.invoke()
+        FILE_WORKER.execute {
+            val result = runCatching(stage)
+            handler.post {
+                if (released) {
+                    result.getOrNull()?.let { imported -> FILE_WORKER.execute { imported.file.delete() } }
+                    return@post
+                }
+                val imported = result.getOrNull()
+                if (imported == null) {
+                    finishFailure(result.exceptionOrNull()?.message ?: "无法读取所选音频", onResult)
+                } else prepareCandidate(imported, { candidate ->
+                    commitCandidate(candidate, imported, onResult)
+                }, { message ->
+                    FILE_WORKER.execute { imported.file.delete() }
+                    finishFailure(message, onResult)
+                })
+            }
+        }
+    }
+
+    fun restoreDefaultMusic(onResult: (MusicImportResult) -> Unit) {
+        if (released) return
+        if (isMusicBusy) { onResult(MusicImportResult(false, "音乐正在处理，请稍候")); return }
+        isMusicBusy = true; onMusicChanged?.invoke()
+        prepareCandidate(null, { commitCandidate(it, null, onResult) }, { finishFailure(it, onResult) })
+    }
+
+    /** Preparing a replacement never touches the currently playing music. */
+    private fun prepareCandidate(selection: LocalMusicStore.Selection?, ready: (MediaPlayer) -> Unit, failed: (String) -> Unit) {
         val candidate = MediaPlayer()
+        pendingPlayer = candidate
+        fun fail() {
+            if (pendingPlayer !== candidate) return
+            preparationTimeout?.let { handler.removeCallbacks(it) }; preparationTimeout = null
+            pendingPlayer = null; candidate.release()
+            if (!released) failed("无法播放这个文件，请选择有效的音频")
+        }
+        candidate.setOnPreparedListener {
+            if (released || pendingPlayer !== candidate) return@setOnPreparedListener
+            preparationTimeout?.let { handler.removeCallbacks(it) }; preparationTimeout = null
+            if (candidate.duration <= 0) { fail(); return@setOnPreparedListener }
+            candidate.setOnPreparedListener(null)
+            candidate.setOnErrorListener(null)
+            ready(candidate)
+        }
+        candidate.setOnErrorListener { _, _, _ -> fail(); true }
         try {
             candidate.setAudioAttributes(attrs)
-            context.assets.openFd("audio/table_loop.wav").use {
+            if (selection != null) candidate.setDataSource(selection.file.absolutePath)
+            else context.assets.openFd("audio/table_loop.wav").use {
                 candidate.setDataSource(it.fileDescriptor, it.startOffset, it.length)
             }
             candidate.isLooping = true
-            candidate.prepare()
-            player = candidate
-            applyMusicVolume()
-        } catch (error: Exception) {
-            candidate.release()
-            Log.w("OfflineAudio", "Cannot load bundled background music", error)
+            candidate.setVolume(0f, 0f)
+            preparationTimeout = Runnable { fail() }.also { handler.postDelayed(it, 20000) }
+            candidate.prepareAsync()
+        } catch (_: Exception) { fail() }
+    }
+
+    private fun commitCandidate(candidate: MediaPlayer, selection: LocalMusicStore.Selection?, onResult: (MusicImportResult) -> Unit) {
+        val previous = currentSelection
+        FILE_WORKER.execute {
+            val result = runCatching { store.commit(selection) }
+            handler.post {
+                if (released) {
+                    // A completed atomic selection remains valid for the next Activity.
+                    if (result.isFailure) selection?.let { FILE_WORKER.execute { it.file.delete() } }
+                    return@post
+                }
+                if (result.isSuccess) {
+                    adopt(candidate, selection)
+                    previous?.let { old -> FILE_WORKER.execute { if (old.file != selection?.file) old.file.delete() } }
+                    onResult(MusicImportResult(true, if (selection == null) "已恢复默认音乐" else "已使用所选音乐"))
+                } else {
+                    if (pendingPlayer === candidate) { pendingPlayer = null; candidate.release() }
+                    selection?.let { FILE_WORKER.execute { it.file.delete() } }
+                    finishFailure("无法保存音乐，原来的音乐已保留", onResult)
+                }
+            }
         }
+    }
+
+    private fun adopt(candidate: MediaPlayer, selection: LocalMusicStore.Selection?) {
+        if (released) return
+        player?.release()
+        player = candidate; pendingPlayer = null; currentSelection = selection
+        isMusicBusy = false
+        syncMusic()
+        onMusicChanged?.invoke()
+    }
+
+    private fun finishFailure(message: String, callback: (MusicImportResult) -> Unit) {
+        isMusicBusy = false; onMusicChanged?.invoke()
+        callback(MusicImportResult(false, message))
     }
 
     private fun applyMusicVolume() {
@@ -72,106 +205,91 @@ class AudioEngine(private val context: Context) {
         val level = volume / 100f * .4f * if (ducked) .38f else 1f
         player?.setVolume(level, level)
     }
-
     private fun syncMusic() {
         if (released) return
-        val shouldPlay = active && focused && music && volume > 0
-        if (shouldPlay) player?.start() else if (player?.isPlaying == true) player?.pause()
+        if (active && focused && music && volume > 0) player?.start()
+        else if (player?.isPlaying == true) player?.pause()
         applyMusicVolume()
     }
-
     private fun stopCues() {
-        streams.forEach { pool.stop(it) }
-        streams.clear()
-        foregroundStream = 0
-        handler.removeCallbacksAndMessages(null)
+        streams.forEach { pool.stop(it) }; streams.clear()
+        foregroundStream = 0; pendingDeal = false
+        handler.removeCallbacks(restoreMusic)
         ducked = false
     }
-
     fun configure(m: Boolean, e: Boolean, v: Int) {
         if (released) return
         music = m; effects = e; volume = v.coerceIn(0, 100)
-        prefs.edit().putBoolean("music", music).putBoolean("effects", effects)
-            .putInt("volume", volume).apply()
+        prefs.edit().putBoolean("music", music).putBoolean("effects", effects).putInt("volume", volume).apply()
         if (!effects || volume == 0) stopCues()
         if (active) resume() else applyMusicVolume()
     }
-
     fun resume() {
         if (released) return
         active = true
         if ((music || effects) && volume > 0) {
             if (!focused) focused = manager.requestAudioFocus(focus) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-        } else {
-            manager.abandonAudioFocusRequest(focus)
-            focused = false
-        }
-        syncMusic()
+        } else { manager.abandonAudioFocusRequest(focus); focused = false }
+        syncMusic(); flushDeal()
     }
-
     fun pause() {
         if (released) return
-        active = false
-        syncMusic()
-        stopCues()
-        manager.abandonAudioFocusRequest(focus)
-        focused = false
+        active = false; syncMusic(); stopCues()
+        manager.abandonAudioFocusRequest(focus); focused = false
     }
-
+    /** Called once for a newly dealt table, never for a restored table. */
+    fun requestDeal() {
+        if (released || !effects || volume == 0) return
+        pendingDeal = true; flushDeal()
+    }
+    private fun flushDeal() {
+        if (pendingDeal && !released && active && focused && effects && volume > 0 && cues["deal"] in loaded) {
+            pendingDeal = false; cue("deal")
+        }
+    }
     fun cue(name: String) {
         if (released || !active || !focused || !effects || volume == 0) return
-        // The source has no loss/turn announcement. Keep those silent instead
-        // of playing an unrelated success clip or inventing an electronic tone.
         val key = if (name == "error") "select" else name
+        // If play has already advanced, a slowly loaded shuffle must not interrupt it.
+        if (key != "deal") pendingDeal = false
         val id = cues[key]?.takeIf { it in loaded } ?: return
         val duration = CUE_DURATIONS[key] ?: return
         val isVoiceOrEvent = duration >= 500
-        if (isVoiceOrEvent && foregroundStream != 0) {
-            pool.stop(foregroundStream)
-            streams.remove(foregroundStream)
-        }
+        if (isVoiceOrEvent && foregroundStream != 0) { pool.stop(foregroundStream); streams.remove(foregroundStream) }
         val level = volume / 100f * if (key == "select") .5f else .9f
         val stream = pool.play(id, level, level, if (isVoiceOrEvent) 2 else 1, 0, 1f)
         if (stream == 0) return
-        streams.add(stream)
+        lastCue = key; streams.add(stream)
         if (isVoiceOrEvent) {
-            foregroundStream = stream
-            ducked = true
-            applyMusicVolume()
-            handler.removeCallbacks(restoreMusic)
-            handler.postDelayed(restoreMusic, duration.toLong() + 80)
+            foregroundStream = stream; ducked = true; applyMusicVolume()
+            handler.removeCallbacks(restoreMusic); handler.postDelayed(restoreMusic, duration.toLong() + 80)
         }
         handler.postDelayed({ streams.remove(stream) }, duration.toLong() + 100)
     }
-
     fun release() {
         if (released) return
-        pause()
-        released = true
-        player?.release(); player = null
-        pool.release()
+        pause(); released = true; onMusicChanged = null
+        preparationTimeout?.let { handler.removeCallbacks(it) }; preparationTimeout = null
+        pendingPlayer?.release(); pendingPlayer = null
+        player?.release(); player = null; pool.release()
     }
-
-    /** Device test hook: seek near the loop boundary without waiting a full song. */
     internal fun testSeekMusic(positionMs: Int) {
         if (!released) player?.let { it.seekTo(positionMs.coerceIn(0, (it.duration - 1).coerceAtLeast(0))) }
     }
-
-    /** Read-only diagnostics for device tests; never alter playback state. */
     internal fun testState() = AudioState(active, focused, released,
-        player?.isPlaying == true, player?.isLooping == true,
-        player?.duration ?: 0, player?.currentPosition ?: 0,
-        cues.filterValues { it in loaded }.keys.toSet(), streams.size)
-
-    internal data class AudioState(val active: Boolean, val focused: Boolean,
-        val released: Boolean, val playing: Boolean, val looping: Boolean,
-        val durationMs: Int, val positionMs: Int, val loadedCues: Set<String>,
-        val activeStreams: Int)
+        player?.isPlaying == true, player?.isLooping == true, player?.duration ?: 0, player?.currentPosition ?: 0,
+        cues.filterValues { it in loaded }.keys.toSet(), streams.size,
+        if (hasCustomMusic) "local" else "bundled", currentMusicName, pendingDeal, lastCue)
+    internal data class AudioState(val active: Boolean, val focused: Boolean, val released: Boolean,
+        val playing: Boolean, val looping: Boolean, val durationMs: Int, val positionMs: Int,
+        val loadedCues: Set<String>, val activeStreams: Int, val musicSource: String,
+        val musicName: String, val pendingDeal: Boolean, val lastCue: String?)
 
     companion object {
+        private val FILE_WORKER = Executors.newSingleThreadExecutor { work -> Thread(work, "LocalMusicFiles") }
         internal val CUE_DURATIONS = linkedMapOf(
-            "select" to 190, "play" to 190, "bid" to 840, "bid_pass" to 190,
-            "pass" to 730, "pair_k" to 940, "pair_a" to 980, "pair_2" to 865,
-            "airplane" to 2370, "bomb" to 2680, "rocket" to 2860, "win" to 2510)
+            "select" to 190, "play" to 190, "deal" to 3815, "bid" to 1536, "bid_pass" to 190,
+            "pass" to 730, "cannot_beat" to 1078, "pair_k" to 940, "pair_a" to 980, "pair_2" to 865,
+            "airplane" to 1519, "bomb" to 2680, "rocket" to 2721, "win" to 2510)
     }
 }

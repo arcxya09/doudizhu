@@ -8,6 +8,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Rect
 import android.media.MediaPlayer
+import android.os.Looper
 import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
@@ -17,11 +18,14 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiScrollable
+import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -150,7 +154,7 @@ class NativeUiTest {
         val originalVolume = prefs.getInt("volume", 45)
         device.wakeUp()
         device.setOrientationNatural()
-        val activity = inst.startActivitySync(Intent(context, MainActivity::class.java)
+        var activity = inst.startActivitySync(Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
         val report = StringBuilder("Device audio checks; subjective timbre and fidelity require listening.\n")
         try {
@@ -160,7 +164,42 @@ class NativeUiTest {
             await("Audio test has foreground window") {
                 device.currentPackageName == context.packageName && onMain(inst) { activity.hasWindowFocus() }
             }
-            val engine = onMain(inst) { activity.testStart(); activity.testAudio() }
+            var engine = onMain(inst) { activity.testStart(); activity.testAudio() }
+            fun importTrack(bytes: ByteArray, name: String): Boolean {
+                val completed = CountDownLatch(1)
+                val success = AtomicBoolean(false)
+                val callbackOnMain = AtomicBoolean(false)
+                onMain(inst) {
+                    engine.importMusic(bytes.inputStream(), name) { result ->
+                        success.set(result.success)
+                        callbackOnMain.set(Looper.myLooper() == Looper.getMainLooper())
+                        completed.countDown()
+                    }
+                }
+                assertTrue("Local music import completes: $name", completed.await(25, TimeUnit.SECONDS))
+                assertTrue("Music result reaches the UI thread: $name", callbackOnMain.get())
+                assertFalse("Import ends its busy state: $name", onMain(inst) { engine.isMusicBusy })
+                return success.get()
+            }
+            fun restoreDefaultMusic() {
+                val completed = CountDownLatch(1)
+                val success = AtomicBoolean(false)
+                onMain(inst) {
+                    engine.restoreDefaultMusic { result ->
+                        success.set(result.success)
+                        completed.countDown()
+                    }
+                }
+                assertTrue("Default music restoration completes", completed.await(25, TimeUnit.SECONDS))
+                assertTrue("Default music can be restored", success.get())
+                assertFalse("Restoration ends its busy state", onMain(inst) { engine.isMusicBusy })
+            }
+            await("Initial music source is prepared") { onMain(inst) {
+                !engine.isMusicBusy && engine.testState().durationMs > 0
+            } }
+            // Keep each display configuration independent if a previous test imported a track.
+            if (onMain(inst) { engine.hasCustomMusic }) restoreDefaultMusic()
+            val decodedDurations = mutableMapOf<String, Int>()
             val files = context.assets.list("audio")!!.toSet()
             for (name in AudioEngine.CUE_DURATIONS.keys + "table_loop") {
                 assertTrue("Bundled audio exists: $name", "$name.wav" in files)
@@ -170,6 +209,7 @@ class NativeUiTest {
                         decoder.setDataSource(it.fileDescriptor, it.startOffset, it.length)
                     }
                     decoder.prepare()
+                    decodedDurations[name] = decoder.duration
                     val duration = AudioEngine.CUE_DURATIONS[name]
                     if (duration != null) assertTrue("Bundled WAV decodes to expected duration: $name", abs(decoder.duration-duration) <= 100)
                     else assertTrue("BGM decodes to a usable loop", decoder.duration >= 3000)
@@ -194,6 +234,94 @@ class NativeUiTest {
                 wrapped
             }
             report.append("Background music: actual loop boundary observed\n")
+
+            // Import real encoded data through the same production entry point used by SAF.
+            // A short deal recording is intentionally distinct from the bundled BGM, so a
+            // source label change cannot hide a MediaPlayer still playing the old track.
+            val importedBytes = context.assets.open("audio/deal.wav").use { it.readBytes() }
+            val importedDuration = decodedDurations.getValue("deal")
+            assertTrue("Imported fixture differs from bundled BGM", abs(importedDuration-duration) > 200)
+            assertTrue("Valid local audio accepted", importTrack(importedBytes, "本地测试音乐.wav"))
+            await("The active player adopts and plays the imported audio") { onMain(inst) {
+                val state = engine.testState()
+                engine.hasCustomMusic && state.musicSource == "local" &&
+                    state.musicName == "本地测试音乐.wav" && state.playing && state.looping &&
+                    abs(state.durationMs-importedDuration) <= 100
+            } }
+            val importedPosition = onMain(inst) { engine.testState().positionMs }
+            await("Imported music playback advances", 3000) {
+                onMain(inst) { engine.testState().positionMs != importedPosition }
+            }
+            assertFalse("Corrupt audio is rejected", importTrack("not a supported audio file".toByteArray(), "损坏的音乐.wav"))
+            onMain(inst) {
+                val state = engine.testState()
+                assertTrue("Failed replacement preserves current imported source", engine.hasCustomMusic)
+                assertEquals("Failed replacement preserves source identity", "local", state.musicSource)
+                assertEquals("Failed replacement preserves selection name", "本地测试音乐.wav", state.musicName)
+                assertTrue("Failed replacement leaves old audio playable", state.playing)
+                assertTrue("Failed replacement leaves old decoded track", abs(state.durationMs-importedDuration) <= 100)
+                engine.configure(false, true, 45)
+            }
+            assertTrue("Import remains usable with music switched off", importTrack(importedBytes, "静音导入音乐.wav"))
+            onMain(inst) {
+                assertFalse("Import does not change the music switch", engine.music)
+                assertFalse("Import does not start disabled music", engine.testState().playing)
+                assertEquals("Muted import still adopts new source", "静音导入音乐.wav", engine.testState().musicName)
+            }
+            val replacedEngine = engine
+            onMain(inst) { activity.finish() }
+            await("Old engine releases before restart") { onMain(inst) { replacedEngine.testState().released } }
+            activity = inst.startActivitySync(Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
+            engine = onMain(inst) { activity.testStart(); activity.testAudio() }
+            await("Restart restores the copied local audio and disabled music switch") { onMain(inst) {
+                val state = engine.testState()
+                activity.hasWindowFocus() && !engine.isMusicBusy && engine.hasCustomMusic &&
+                    state.musicSource == "local" && state.musicName == "静音导入音乐.wav" &&
+                    abs(state.durationMs-importedDuration) <= 100 && !engine.music && !state.playing
+            } }
+            onMain(inst) { engine.configure(true, true, 45) }
+            await("Persisted local audio plays after enabling music") { onMain(inst) { engine.testState().playing } }
+            restoreDefaultMusic()
+            await("Restore default replaces the actual active player") { onMain(inst) {
+                val state = engine.testState()
+                !engine.hasCustomMusic && state.musicSource == "bundled" && state.playing &&
+                    state.loadedCues == AudioEngine.CUE_DURATIONS.keys &&
+                    abs(state.durationMs-decodedDurations.getValue("table_loop")) <= 100
+            } }
+            report.append("Local music: decoded replacement, live playback, corrupt-file rollback, muted import, restart persistence and default restoration: passed\n")
+
+            tap(inst, device, activity, "设置")
+            assertTrue("Sound settings dialog opens", device.wait(Until.hasObject(By.text("声音与牌桌设置")), 5000))
+            val settingsScroll = UiScrollable(UiSelector().scrollable(true))
+            assertTrue("Local music action can be reached by scrolling", settingsScroll.scrollIntoView(UiSelector().text("选择本地音乐")))
+            device.waitForIdle()
+            assertEquals("Settings belongs to the game", context.packageName, device.currentPackageName)
+            assertTrue("Settings title remains visible", device.hasObject(By.text("声音与牌桌设置")))
+            val chooseMusic = device.findObject(By.text("选择本地音乐").enabled(true))
+            assertNotNull("Local music action is enabled and visible", chooseMusic)
+            assertFalse("Local music action has visible bounds", chooseMusic!!.visibleBounds.isEmpty)
+            val settingsScreenshot = File(context.getExternalFilesDir(null), "screenshots").apply { mkdirs() }
+                .resolve("native-settings.png")
+            // AlertDialog owns a separate window, so compare neither it nor its dimming
+            // with the Activity decor used by the game-table capture helper.
+            assertTrue("Settings dialog screenshot saved", device.takeScreenshot(settingsScreenshot))
+            chooseMusic.click()
+            val documentPackages = setOf("com.google.android.documentsui", "com.android.documentsui")
+            await("Choose local music opens the Android document picker") {
+                device.currentPackageName in documentPackages
+            }
+            assertTrue("Cancel the document picker", device.pressBack())
+            await("Cancelling the picker returns to sound settings") {
+                device.currentPackageName == context.packageName && device.hasObject(By.text("声音与牌桌设置"))
+            }
+            val returnToTable = device.findObject(By.text("返回牌局"))
+            assertNotNull("Settings retains its return action after cancellation", returnToTable)
+            returnToTable!!.click()
+            await("Return action closes settings and restores the game window") {
+                !device.hasObject(By.text("声音与牌桌设置")) && onMain(inst) { activity.hasWindowFocus() }
+            }
+            report.append("Settings: local music action reachable, native document picker opened, cancellation and return to game: passed\n")
             onMain(inst) {
                 engine.cue("rocket")
                 assertTrue("Recorded event starts", engine.testState().activeStreams > 0)
