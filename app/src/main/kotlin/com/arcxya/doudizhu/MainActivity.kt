@@ -40,6 +40,8 @@ class MainActivity: Activity() {
     private var autoPlay=false
     private lateinit var stakes:TextView
     private val people=mutableListOf<SeatAvatar>()
+    private lateinit var effectBanner:TextView
+    private val difficultyLabels=mutableListOf<TextView>()
     private val badges=mutableListOf<TextView>()
     private val turnClocks=mutableListOf<TurnClock>()
     private lateinit var counter:RankCounter
@@ -58,16 +60,14 @@ class MainActivity: Activity() {
     private fun dp(n:Int)=(n*resources.displayMetrics.density+.5f).toInt()
     private fun text(value:String,size:Float=18f,color:Int=Color.WHITE)=TextView(this).apply { text=value;textSize=size;setTextColor(color);gravity=Gravity.CENTER;includeFontPadding=false }
     private fun background(color:Int,stroke:Int=Color.TRANSPARENT)=GradientDrawable().apply {setColor(color);cornerRadius=dp(10).toFloat();setStroke(dp(2),stroke)}
-    private fun button(label:String,primary:Boolean=false,action:()->Unit)=Button(this).apply {
-        text=label;textSize=20f;isAllCaps=false;setTypeface(null,Typeface.BOLD);maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(14,20,1,android.util.TypedValue.COMPLEX_UNIT_SP)
-        setTextColor(Color.WHITE);setShadowLayer(dp(2).toFloat(),0f,dp(1).toFloat(),Color.rgb(112,58,15))
-        val face=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,if(primary)intArrayOf(0xffffe478.toInt(),0xffffb82f.toInt(),0xffec8b17.toInt()) else intArrayOf(0xff97e7ff.toInt(),0xff929eff.toInt(),0xff7770ef.toInt())).apply {
-            cornerRadius=dp(22).toFloat();setStroke(dp(1),if(primary)0xffffd97a.toInt() else 0xffa6c9ff.toInt())
-        }
-        background=android.graphics.drawable.InsetDrawable(face,0,dp(7),0,dp(7));stateListAnimator=null;elevation=dp(2).toFloat()
-        minHeight=dp(48);minimumHeight=dp(48);minWidth=dp(90);setPadding(dp(8),0,dp(8),0);setOnClickListener{action()}
+    private fun button(label:String,primary:Boolean=false,action:()->Unit)=ClassicActionButton(this,primary).apply {
+        text=label;textSize=15f;isAllCaps=false;setTypeface(null,Typeface.BOLD);maxLines=1
+        setAutoSizeTextTypeUniformWithConfiguration(12,15,1,android.util.TypedValue.COMPLEX_UNIT_SP)
+        setTextColor(Color.WHITE);background=null;stateListAnimator=null;elevation=0f
+        minHeight=dp(48);minimumHeight=dp(48);minWidth=0;minimumWidth=0
+        setPadding(dp(10),dp(13),dp(10),dp(13));setOnClickListener{action()}
     }
-    private fun buttonEnabled(b:Button,value:Boolean){b.isEnabled=value;b.alpha=if(value)1f else .42f}
+    private fun buttonEnabled(b:Button,value:Boolean){b.isEnabled=value;b.alpha=if(value)1f else .54f}
     override fun onCreate(savedInstanceState:Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -106,10 +106,10 @@ class MainActivity: Activity() {
             setShadowLayer(dp(1).toFloat(),0f,dp(1).toFloat(),0xff274979.toInt())
         }
         fun tool(label:String,icon:Int,action:()->Unit)=Button(this).apply{
-            text=label;textSize=11f;isAllCaps=false;setTextColor(Color.WHITE);setTypeface(null,Typeface.BOLD)
+            text=label;textSize=10f;isAllCaps=false;setTextColor(Color.WHITE);setTypeface(null,Typeface.NORMAL)
             setShadowLayer(dp(1).toFloat(),0f,dp(1).toFloat(),0xff26467b.toInt());background=null
             minWidth=0;minimumWidth=0;minHeight=0;minimumHeight=0;setPadding(0,0,0,0)
-            setCompoundDrawablesWithIntrinsicBounds(null,TableIcon(icon,dp(20)),null,null)
+            setCompoundDrawablesWithIntrinsicBounds(null,TableIcon(icon,dp(16)),null,null)
             setOnClickListener{action()}
         }
         val back=tool("",4){onBackPressed()};back.contentDescription="返回，保存牌局"
@@ -119,54 +119,52 @@ class MainActivity: Activity() {
         autoButton=tool("托管",0){autoPlay=!autoPlay;render();schedule()}
         val clear=tool("重选",1){selected.clear();render()}
         val options=tool("设置",3){showSettings()}
-        listOf(clear,autoButton,options).forEachIndexed{i,v->table.place(v,.78f+i*.064f,.006f,.06f,.11f)}
-        val title=TextView(this).apply{
-            text="单机\n斗地主";textSize=29f;setTypeface(null,Typeface.BOLD_ITALIC);gravity=Gravity.CENTER
-            includeFontPadding=false;setTextColor(0x4933477a);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            setAutoSizeTextTypeUniformWithConfiguration(14,29,1,android.util.TypedValue.COMPLEX_UNIT_SP)
-        };table.place(title,.425f,.198f,.15f,.18f)
+        listOf(clear,autoButton,options).forEachIndexed{i,v->table.place(v,.709f+i*.052f,.003f,.047f,.11f)}
+        table.place(TableWordmark(this),.425f,.198f,.15f,.18f)
         stakes=label("",12f,0x99506b9f.toInt()).apply{setShadowLayer(0f,0f,0f,0)};table.place(stakes,.32f,.38f,.36f,.04f)
         val self=SeatAvatar(this,"seat_self.webp");val left=SeatAvatar(this,"seat_left.webp");val right=SeatAvatar(this,"seat_right.webp")
         people.addAll(listOf(self,left,right))
         table.place(left,.047f,.255f,.066f,.143f);table.place(right,.89f,.255f,.066f,.143f)
         for(p in 1..2){
             val x=if(p==1).045f else .885f
-            val badge=label("",10f).apply{background=background(0xffce892d.toInt(),0xffefca75.toInt())};badges.add(badge)
+            val badge=label("",9f).apply{background=RoleBadge()};badges.add(badge)
             table.place(badge,x+.005f,.405f,.067f,.042f)
-            val name=label(names[p],13f).apply{tag="opponent-text"};seatNames.add(name);table.place(name,x,.448f,.08f,.06f)
-            val local=label("电脑",11f,0xffffe77b.toInt());table.place(local,x,.51f,.08f,.05f)
+            val name=label(names[p],12f).apply{tag="opponent-text"};seatNames.add(name);table.place(name,x,.448f,.08f,.06f)
+            val local=label("",10f,0xffffe77b.toInt());difficultyLabels.add(local);table.place(local,x,.51f,.08f,.05f)
             val count=label("",17f).apply{tag="opponent-text";background=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,intArrayOf(0xff70a7d3.toInt(),0xff467db2.toInt())).apply{cornerRadius=dp(2).toFloat();setStroke(dp(1),0xffc6eaff.toInt())}}
             counts.add(count);table.place(count,if(p==1).122f else .856f,.41f,.025f,.071f)
             val cue=label("",25f,0xffc2f1ff.toInt()).apply{tag="opponent-text";setTypeface(null,Typeface.BOLD_ITALIC)};cues.add(cue)
             table.place(cue,if(p==1).166f else .694f,.277f,.14f,.075f)
             val clock=TurnClock(this,"…");turnClocks.add(clock);table.place(clock,if(p==1).16f else .78f,.265f,.065f,.135f)
         }
-        for(p in 0..2){val cards=CardStrip(this,art,if(p==0)12 else 10);seatCards.add(cards)
+        for(p in 0..2){val cards=CardStrip(this,art,if(p==0)12 else 10,if(p==1)Gravity.START else if(p==2)Gravity.END else Gravity.CENTER_HORIZONTAL).apply{tag="seat-play-$p"};seatCards.add(cards)
             if(p==0)table.place(cards,.365f,.435f,.27f,.16f)
-            else table.place(cards,if(p==1).16f else .55f,.25f,.29f,.18f)
+            else table.place(cards,if(p==1).174f else .550f,.25f,.28f,.164f)
         }
         notice=label("",13f,0xffdaedff.toInt());table.place(notice,.29f,.50f,.42f,.078f)
         actions=LinearLayout(this).apply{gravity=Gravity.CENTER;clipChildren=false};table.place(actions,.25f,.465f,.5f,.132f)
-        hand=HandLayout(this).apply{contentDescription="我的手牌，点击或横滑选择，再点出牌";setPadding(0,dp(2),0,0)};table.place(hand,.048f,.59f,.904f,.332f)
-        table.place(View(this).apply{setBackgroundColor(0x55303c69)},0f,.934f,1f,.066f)
+        hand=HandLayout(this).apply{contentDescription="我的手牌，点击或横滑选择，再点出牌";setPadding(0,dp(2),0,0)};table.place(hand,.048f,.585f,.904f,.332f)
+        table.place(View(this).apply{setBackgroundColor(0x38303c69)},0f,.934f,1f,.066f)
         table.place(self,.047f,.846f,.069f,.137f)
         selfName=label("",13f);table.place(selfName,.13f,.938f,.15f,.052f)
-        info=label("",18f,0xffffe875.toInt());table.place(info,.28f,.938f,.17f,.052f)
+        info=label("",15f,0xffffe875.toInt()).apply{gravity=Gravity.CENTER_VERTICAL;setCompoundDrawablesWithIntrinsicBounds(CoinIcon(dp(15)),null,null,null);compoundDrawablePadding=dp(4)};table.place(info,.29f,.938f,.16f,.052f)
         selection=label("",12f);table.place(selection,.45f,.938f,.26f,.052f)
-        record=label("",11f,0xffdbebff.toInt());table.place(record,.585f,.015f,.18f,.052f)
+        record=label("",11f,0xffdbebff.toInt()).apply{visibility=View.GONE};table.place(record,.585f,.015f,.18f,.052f)
         multiple=label("",17f,0xffffe591.toInt()).apply{background=background(0x55402f55)};table.place(multiple,.75f,.939f,.12f,.05f)
         val help=Button(this).apply{text="帮助";textSize=13f;isAllCaps=false;setTextColor(Color.WHITE);background=background(0xff53c99c.toInt(),0xffa4edce.toInt());minHeight=0;minimumHeight=0;minWidth=0;minimumWidth=0;setPadding(0,0,0,0);setOnClickListener{showSettings()}}
         table.place(help,.893f,.938f,.077f,.055f)
+        effectBanner=label("",28f,0xffffd35b.toInt()).apply{alpha=0f;setTypeface(null,Typeface.BOLD_ITALIC);setShadowLayer(dp(2).toFloat(),0f,dp(2).toFloat(),0xff564222.toInt())}
+        table.place(effectBanner,.32f,.345f,.36f,.09f)
     }
     private fun addAction(label:String,primary:Boolean=false,enabled:Boolean=true,action:()->Unit):Button {
         val b=button(label,primary,action);buttonEnabled(b,enabled)
-        val width=(resources.configuration.screenWidthDp*.105f).toInt().coerceIn(if(label.length>3)100 else 76,110)
+        val width=(resources.configuration.screenWidthDp*.105f).toInt().coerceIn(if(label.length>3)94 else 70,104)
         actions.addView(b,LinearLayout.LayoutParams(dp(width),dp(48)).apply{setMargins(dp(4),0,dp(4),0)})
         return b
     }
     private fun addClock(){
         val clock=TurnClock(this,"∞").apply{contentDescription="玩家不限时"}
-        actions.addView(clock,LinearLayout.LayoutParams(dp(40),dp(48)).apply{setMargins(dp(2),0,dp(2),0)})
+        actions.addView(clock,LinearLayout.LayoutParams(dp(43),dp(48)).apply{setMargins(dp(2),0,dp(2),0)})
     }
     private fun render(){
         stakes.text="单机${levels[game.level]}场  底分：${if(game.highBid>0)game.highBid else "—"}"
@@ -177,18 +175,21 @@ class MainActivity: Activity() {
         for(p in 1..2){
             seatNames[p-1].text=names[p]
             badges[p-1].text=role(p).ifEmpty{"电脑"}
+            difficultyLabels[p-1].text=levels[game.level]
             turnClocks[p-1].visibility=if(game.turn==p && game.phase in listOf("bid","play"))View.VISIBLE else View.INVISIBLE
             counts[p-1].text=game.hands[p].size.toString();counts[p-1].contentDescription="${names[p]}剩余${game.hands[p].size}张牌"
             cues[p-1].visibility=if(game.turn==p && game.phase!="over")View.INVISIBLE else View.VISIBLE
             cues[p-1].text=if(game.status[p] in listOf("不出","不叫")||game.phase=="bid")game.status[p].replace("等待叫分","") else ""
         }
         counter.show(game)
+        counter.visibility=if(game.landlord<0)View.INVISIBLE else View.VISIBLE
+        bottom.visibility=counter.visibility
         for(p in 0..2){seatCards[p].visibility=if(game.turn==p && game.phase!="over")View.INVISIBLE else View.VISIBLE;people[p].active=game.turn==p&&game.phase!="over";seatCards[p].show(seatMoves[p].asReversed());seatCards[p].contentDescription="${names[p]}出牌："+seatMoves[p].joinToString("、"){Rules.cardName(it)}}
         bottom.show(if(game.landlord<0)listOf(54,54,54) else game.bottom.asReversed())
         notice.text=when(game.phase){"bid"->if(game.turn==0)"轮到你叫地主" else "${names[game.turn]}正在叫分";"redeal"->"无人叫分，重新发牌";"over"->if(game.delta>0)"本局获胜" else "本局结束";else->if(game.turn==0)"轮到你出牌" else "${names[game.turn]}正在出牌"}
         notice.announceForAccessibility(notice.text)
         selfName.text="${role(0).ifEmpty{"我"}} · ${game.hands[0].size}张"
-        info.text="●  $score";record.text="$wins 胜 / $games 局";multiple.text="×${game.multiplier} 倍"
+        info.text=score.toString();record.text="$wins 胜 / $games 局";multiple.text="×${game.multiplier} 倍"
         selected.retainAll(game.hands[0].toSet());hand.removeAllViews()
         game.hands[0].asReversed().forEachIndexed { index,card->
             val face=CardFace(this,art,card,true);face.landlordRibbon=game.landlord==0 && index==game.hands[0].lastIndex;face.isSelected=card in selected;face.isEnabled=game.phase=="play"&&game.turn==0&&!autoPlay
@@ -207,15 +208,23 @@ class MainActivity: Activity() {
     }
     private fun refreshSelection(){
         val m=Rules.classify(selected.toList());val valid=Rules.beats(m,game.last)
-        selection.text=if(selected.isEmpty())"本局  ${if(game.phase=="over")game.delta else 0}" else "已选 ${selected.size} 张 · ${m?.kind?.title?:"牌型不完整"}${if(m!=null&&!valid)" · 压不过上家" else ""}"
+        selection.text=if(selected.isEmpty())if(game.phase=="over")"本局 ${game.delta}" else "" else "已选 ${selected.size} 张 · ${m?.kind?.title?:"牌型不完整"}${if(m!=null&&!valid)" · 压不过上家" else ""}"
         playButton?.let{buttonEnabled(it,selected.isNotEmpty()&&valid)}
     }
-    private fun humanBid(n:Int){if(game.turn!=0||game.phase!="bid")return;game.bid(n);audio.cue("bid");advance()}
+    private fun humanBid(n:Int){if(game.turn!=0||game.phase!="bid")return;game.bid(n);audio.cue(if(n>0)"bid" else "select");advance()}
     private fun humanPlay(cards:List<Int>){
         if(game.turn!=0||game.phase!="play")return
         if(cards.isEmpty()&&selected.isNotEmpty()){selection.text="已经选牌，请先点“重选”再不出";audio.cue("error");return}
-        try{playCards(cards);selected.clear();audio.cue(if(cards.isEmpty())"pass" else if(game.last?.kind in listOf(Kind.BOMB,Kind.ROCKET))"bomb" else "play");advance()}
+        try{playCards(cards);selected.clear();audio.cue(moveSound(if(cards.isEmpty())null else game.last));advance()}
         catch(e:IllegalArgumentException){selection.text=e.message;audio.cue("error")}
+    }
+    private fun moveSound(move:Move?):String=when(move?.kind){
+        null->"pass"
+        Kind.BOMB->"bomb"
+        Kind.ROCKET->"rocket"
+        Kind.PLANE_SINGLE,Kind.PLANE_PAIR->"airplane"
+        Kind.PAIR->when(move.key){13->"pair_k";14->"pair_a";15->"pair_2";else->"play"}
+        else->"play"
     }
     private fun hint(){val m=Rules.ai(game.hands[0],game.last,0,game.landlord,game.lastPlayer,game.hands.map{it.size},2);selected.clear();m?.cards?.let{selected.addAll(it)};render();if(m==null)selection.text=if(Rules.moves(game.hands[0],game.last).isEmpty())"没有能压过的牌，请点“不出”" else "建议让农民队友继续出牌"}
     private fun advance(){
@@ -230,14 +239,19 @@ class MainActivity: Activity() {
         if(game.turn==0&&!autoPlay)return
         handler.postDelayed({
             if(!running||modal)return@postDelayed
-            if(game.phase=="bid"){game.bid(Rules.bid(game.hands[game.turn],game.highBid,game.level));audio.cue("bid")}
-            else if(game.phase=="play"){val m=game.computer();playCards(m?.cards?:emptyList());audio.cue(if(m==null)"pass" else if(m.kind in listOf(Kind.BOMB,Kind.ROCKET))"bomb" else "play")}
+            if(game.phase=="bid"){val bid=Rules.bid(game.hands[game.turn],game.highBid,game.level);game.bid(bid);audio.cue(if(bid>0)"bid" else "select")}
+            else if(game.phase=="play"){val m=game.computer();playCards(m?.cards?:emptyList());audio.cue(moveSound(m))}
             advance()
         },speed)
     }
     private fun playCards(cards:List<Int>){
         val actor=game.turn;val newTrick=game.last==null
         game.play(cards)
+        if(cards.isNotEmpty() && game.last?.kind in listOf(Kind.BOMB,Kind.ROCKET)){
+            effectBanner.animate().cancel();effectBanner.alpha=1f
+            effectBanner.text=if(game.last?.kind==Kind.ROCKET)"王炸 ×2" else "炸弹 ×2"
+            effectBanner.animate().alpha(0f).setStartDelay(800L).setDuration(250L).start()
+        }
         if(newTrick||game.last==null)seatMoves=Array(3){emptyList()}
         seatMoves[actor]=cards.toList()
     }
@@ -267,6 +281,7 @@ class MainActivity: Activity() {
         fun applySound(){audio.configure(music.isChecked,effects.isChecked,volume.progress)}
         music.setOnCheckedChangeListener{_,_->applySound()};effects.setOnCheckedChangeListener{_,_->applySound()}
         volume.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{override fun onProgressChanged(s:SeekBar?,p:Int,user:Boolean){if(user)applySound()};override fun onStartTrackingTouch(s:SeekBar?){};override fun onStopTrackingTouch(s:SeekBar?){audio.cue("play")}})
+        content.addView(text("本地战绩：$wins 胜 / $games 局 · $score 分",16f))
         content.addView(text("下一局难度",20f,gold));val difficulty=RadioGroup(this).apply{orientation=RadioGroup.HORIZONTAL;gravity=Gravity.CENTER}
         levels.forEachIndexed{i,label->difficulty.addView(RadioButton(this).apply{id=100+i;text=label;textSize=18f;setTextColor(Color.WHITE);minHeight=dp(48);isChecked=nextLevel==i})};difficulty.check(100+nextLevel)
         difficulty.setOnCheckedChangeListener{_,id->nextLevel=id-100;settings.edit().putInt("level",nextLevel).apply()};content.addView(difficulty)
@@ -292,7 +307,14 @@ class MainActivity: Activity() {
     override fun onDestroy(){handler.removeCallbacksAndMessages(null);if(::audio.isInitialized)audio.release();super.onDestroy()}
     @Deprecated("Legacy Android back callback")
     override fun onBackPressed(){if(modal)return;modal=true;handler.removeCallbacksAndMessages(null);AlertDialog.Builder(this).setTitle("暂时离开牌桌？").setMessage("当前牌局已经保存，下次打开继续。").setPositiveButton("离开"){_,_->finish()}.setNegativeButton("继续玩",null).create().apply{setOnDismissListener{modal=false;schedule()};show()}}
-    internal fun testBidding(){handler.removeCallbacksAndMessages(null);seatMoves=Array(3){emptyList()};game=Game.create(1,kotlin.random.Random(42));game.turn=0;running=false;selected.clear();render()}
+    internal fun testAudio():AudioEngine=audio
+    internal fun testBidding(){
+        handler.removeCallbacksAndMessages(null);seatMoves=Array(3){emptyList()}
+        val own=listOf(53,52,48,51,42,43,36,37,38,39,28,29,31,26,18,19,6)
+        val kitty=listOf(24,25,7);val rest=(0..53).filter{it !in own && it !in kitty}
+        game=Game.create(1,kotlin.random.Random(42)).copy(hands=mutableListOf(Rules.sorted(own).toMutableList(),Rules.sorted(rest.take(17)).toMutableList(),Rules.sorted(rest.drop(17)).toMutableList()),bottom=kitty)
+        game.turn=0;running=false;selected.clear();render()
+    }
     internal fun testSeatPlays(){
         testStart()
         for(p in 0..2){val card=p*4;val owner=game.hands.indexOfFirst{card in it};if(owner!=p){val swap=game.hands[p].first();game.hands[p].remove(swap);game.hands[owner].remove(card);game.hands[p].add(card);game.hands[owner].add(swap)};playCards(listOf(card))}

@@ -40,13 +40,16 @@ for size in compact large largefont wide cutout; do
   adb shell settings put system font_scale "$font_scale"
   adb shell input keyevent KEYCODE_WAKEUP
   adb shell wm dismiss-keyguard
+  # A failed configuration must not reuse screenshots or audio logs from the previous run.
+  adb shell 'rm -f /sdcard/Android/data/com.arcxya.doudizhu/files/screenshots/native-*.png /sdcard/Android/data/com.arcxya.doudizhu/files/screenshots/native-audio.txt'
   adb shell am instrument -w -r \
     -e expectedCutout "$([ "$size" = cutout ] && echo true || echo false)" -e expectedWidth "$width" -e expectedHeight "$height" -e expectedFontScale "$font_scale" \
     com.arcxya.doudizhu.test/androidx.test.runner.AndroidJUnitRunner | tee "device-results/$size-tests.txt"
   for frame in table selected played long-play three-seats bidding; do
     adb pull "/sdcard/Android/data/com.arcxya.doudizhu/files/screenshots/native-$frame.png" "device-results/native-$size-$frame.png" 2>/dev/null || true
   done
-  if ! grep -q 'OK (1 test)' "device-results/$size-tests.txt"; then
+  adb pull "/sdcard/Android/data/com.arcxya.doudizhu/files/screenshots/native-audio.txt" "device-results/$size-audio.txt" 2>/dev/null || true
+  if ! grep -q 'OK (2 tests)' "device-results/$size-tests.txt"; then
     adb exec-out screencap -p > "device-results/native-$size-failure.png"
     adb logcat -d -s AndroidRuntime:E > device-results/crashes.txt
     exit 1

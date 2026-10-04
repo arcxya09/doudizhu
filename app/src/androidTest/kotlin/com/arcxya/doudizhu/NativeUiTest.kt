@@ -7,6 +7,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Rect
+import android.media.MediaPlayer
 import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
@@ -72,6 +73,10 @@ class NativeUiTest {
                 val decor = activity.window.decorView
                 for(button in all(decor).filterIsInstance<Button>().filter{it.isShown && it.text.isNotEmpty()}){
                     assertTrue("Full button caption visible: ${button.text}",button.paint.measureText(button.text.toString())<=button.width-button.compoundPaddingLeft-button.compoundPaddingRight+1)
+                    val caption = button.layout
+                    assertNotNull("Button caption laid out: ${button.text}", caption)
+                    assertTrue("Full button caption height visible: ${button.text}",
+                        caption.getLineBottom(caption.lineCount - 1) <= button.height-button.compoundPaddingTop-button.compoundPaddingBottom+1)
                 }
                 val image = Bitmap.createBitmap(decor.width, decor.height, Bitmap.Config.ARGB_8888)
                 decor.draw(Canvas(image))
@@ -106,6 +111,132 @@ class NativeUiTest {
             SystemClock.sleep(300)
         }
         fail("Screenshot must match the native game window, difference=$lastDifference")
+    }
+
+    /** Validate drawn seat placement, not just the size of the empty play containers. */
+    private fun checkSeatPlayAlignment(inst: Instrumentation, activity: MainActivity) = onMain(inst) {
+        val strips = all(activity.window.decorView).filterIsInstance<CardStrip>()
+        val left = strips.single { it.tag == "seat-play-1" }
+        val right = strips.single { it.tag == "seat-play-2" }
+        val self = strips.single { it.tag == "seat-play-0" }
+        for (strip in listOf(left, right, self)) {
+            assertEquals("One card retained for ${strip.contentDescription}", 1, strip.childCount)
+            val card = strip.getChildAt(0)
+            // The previous self play is intentionally hidden when it becomes our turn again.
+            if (strip === self && !strip.isShown) continue
+            val bounds = Rect()
+            assertTrue("Played card shown: ${strip.contentDescription}", card.getGlobalVisibleRect(bounds))
+            assertEquals("Played card full width: ${strip.contentDescription}", card.width, bounds.width())
+            assertEquals("Played card full height: ${strip.contentDescription}", card.height, bounds.height())
+        }
+        assertTrue("Left play stays beside the left avatar", left.getChildAt(0).left <= 1)
+        assertTrue("Right play stays beside the right avatar", abs(right.getChildAt(0).right-right.width) <= 1)
+        val ownCard = self.getChildAt(0)
+        assertTrue("Own play remains centered", abs(ownCard.left+ownCard.right-self.width) <= 2)
+        val screenWidth = activity.window.decorView.width
+        val leftBounds = Rect().also { left.getChildAt(0).getGlobalVisibleRect(it) }
+        val rightBounds = Rect().also { right.getChildAt(0).getGlobalVisibleRect(it) }
+        assertTrue("Left single card is in left seat band", leftBounds.centerX() < screenWidth*.28f)
+        assertTrue("Right single card is in right seat band", rightBounds.centerX() > screenWidth*.72f)
+    }
+
+    @Test fun bundledAudioDecodesAndFollowsActivityLifecycle() {
+        val inst = InstrumentationRegistry.getInstrumentation()
+        val context = inst.targetContext
+        val device = UiDevice.getInstance(inst)
+        val prefs = context.getSharedPreferences("settings", 0)
+        val originalMusic = prefs.getBoolean("music", true)
+        val originalEffects = prefs.getBoolean("effects", true)
+        val originalVolume = prefs.getInt("volume", 45)
+        device.wakeUp()
+        device.setOrientationNatural()
+        val activity = inst.startActivitySync(Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
+        val report = StringBuilder("Device audio checks; subjective timbre and fidelity require listening.\n")
+        try {
+            device.wait(Until.hasObject(By.pkg(context.packageName)), 10000)
+            device.findObject(By.text("GOT IT"))?.click()
+            device.findObject(By.text("知道了"))?.click()
+            await("Audio test has foreground window") {
+                device.currentPackageName == context.packageName && onMain(inst) { activity.hasWindowFocus() }
+            }
+            val engine = onMain(inst) { activity.testStart(); activity.testAudio() }
+            val files = context.assets.list("audio")!!.toSet()
+            for (name in AudioEngine.CUE_DURATIONS.keys + "table_loop") {
+                assertTrue("Bundled audio exists: $name", "$name.wav" in files)
+                val decoder = MediaPlayer()
+                try {
+                    context.assets.openFd("audio/$name.wav").use {
+                        decoder.setDataSource(it.fileDescriptor, it.startOffset, it.length)
+                    }
+                    decoder.prepare()
+                    val duration = AudioEngine.CUE_DURATIONS[name]
+                    if (duration != null) assertTrue("Bundled WAV decodes to expected duration: $name", abs(decoder.duration-duration) <= 100)
+                    else assertTrue("BGM decodes to a usable loop", decoder.duration >= 3000)
+                    report.append("$name.wav: decoded ${decoder.duration} ms\n")
+                } finally { decoder.release() }
+            }
+            onMain(inst) { engine.configure(true, true, 45) }
+            await("All recorded cues loaded and BGM playing") { onMain(inst) {
+                val state = engine.testState()
+                state.playing && state.looping && state.loadedCues == AudioEngine.CUE_DURATIONS.keys
+            } }
+            val duration = onMain(inst) { engine.testState().durationMs }
+            onMain(inst) { engine.testSeekMusic(duration-1200) }
+            await("BGM seek reaches the end of the track", 3000) {
+                onMain(inst) { engine.testState().positionMs >= duration-1500 }
+            }
+            var previousPosition = onMain(inst) { engine.testState().positionMs }
+            await("BGM passes its end and loops during playback", 4500) {
+                val state = onMain(inst) { engine.testState() }
+                val wrapped = state.playing && state.positionMs+300 < previousPosition
+                previousPosition = state.positionMs
+                wrapped
+            }
+            report.append("Background music: actual loop boundary observed\n")
+            onMain(inst) {
+                engine.cue("rocket")
+                assertTrue("Recorded event starts", engine.testState().activeStreams > 0)
+                engine.configure(true, false, 45)
+                assertEquals("Disabling effects stops current cues", 0, engine.testState().activeStreams)
+                assertTrue("Music keeps playing when only effects are disabled", engine.testState().playing)
+                engine.configure(false, true, 45)
+                assertFalse("Disabling music pauses BGM", engine.testState().playing)
+                engine.cue("pass")
+                assertTrue("Effects remain usable without music", engine.testState().activeStreams > 0)
+                engine.configure(false, false, 45)
+                assertFalse("Both sound switches silence BGM", engine.testState().playing)
+                assertEquals("Both sound switches silence effects", 0, engine.testState().activeStreams)
+                engine.configure(true, true, 0)
+                assertFalse("Zero volume pauses BGM", engine.testState().playing)
+                assertFalse("Zero volume releases audio focus", engine.testState().focused)
+                engine.configure(true, true, 45)
+                engine.cue("rocket")
+            }
+            assertTrue("Move app to background", device.pressHome())
+            await("Background Activity pauses all audio") { onMain(inst) {
+                val state = engine.testState()
+                !state.active && !state.playing && state.activeStreams == 0
+            } }
+            val pausedPosition = onMain(inst) { engine.testState().positionMs }
+            SystemClock.sleep(200)
+            assertEquals("Paused BGM position is stable", pausedPosition, onMain(inst) { engine.testState().positionMs })
+            context.startActivity(Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+            await("Foreground Activity resumes BGM") { onMain(inst) {
+                activity.hasWindowFocus() && engine.testState().active && engine.testState().playing
+            } }
+            onMain(inst) { activity.finish() }
+            await("Destroyed Activity releases audio") { onMain(inst) { engine.testState().released } }
+            report.append("Sound switches, cue cancellation, background pause, foreground resume and release: passed\n")
+            File(context.getExternalFilesDir(null), "screenshots").apply { mkdirs() }
+                .resolve("native-audio.txt").writeText(report.toString())
+        } finally {
+            onMain(inst) { if (!activity.isFinishing) activity.finish() }
+            prefs.edit().putBoolean("music", originalMusic).putBoolean("effects", originalEffects)
+                .putInt("volume", originalVolume).commit()
+            device.unfreezeRotation()
+        }
     }
 
     @Test fun nativeLandscapeCardsAndPlay() {
@@ -228,8 +359,10 @@ class NativeUiTest {
         captureGame(inst,device,activity,File(dir,"native-long-play.png"))
         inst.runOnMainSync {activity.testSeatPlays()}
         captureGame(inst,device,activity,File(dir,"native-three-seats.png"))
+        checkSeatPlayAlignment(inst, activity)
         inst.runOnMainSync {activity.testBidding()}
         captureGame(inst,device,activity,File(dir,"native-bidding.png"))
+        assertEquals("Reference bidding fixture has seventeen cards", 17, onMain(inst) { activity.hand.childCount })
         tap(inst,device,activity,"叫地主")
         await("Call landlord from reference-layout button"){onMain(inst){activity.game.landlord==0 && activity.game.hands[0].size==20}}
         inst.runOnMainSync {activity.finish()};inst.waitForIdleSync()

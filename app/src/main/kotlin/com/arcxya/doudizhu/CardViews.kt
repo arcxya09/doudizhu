@@ -5,6 +5,7 @@ import android.graphics.*
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.Gravity
 import android.view.accessibility.AccessibilityNodeInfo
 import kotlin.math.min
 import kotlin.math.max
@@ -12,10 +13,15 @@ import kotlin.math.abs
 
 class CardArt(context: Context) {
     val atlas: Bitmap = context.assets.open("cards.webp").use { BitmapFactory.decodeStream(it) }
+    val ranks: Bitmap = context.assets.open("rank_glyphs.png").use { BitmapFactory.decodeStream(it) }
+    val jokerIndex: Bitmap = context.assets.open("joker_index.png").use { BitmapFactory.decodeStream(it) }
+    private val rankSizes = arrayOf(34 to 56,27 to 39,22 to 34,23 to 37,27 to 41,38 to 56,27 to 41,34 to 40,35 to 54,29 to 45,30 to 40,44 to 57,26 to 40)
     fun source(card: Int) = Rect(card%9*160,card/9*240,card%9*160+160,card/9*240+240)
+    fun rankSource(card: Int): Rect {val rank=card/4;val size=rankSizes[rank];return Rect(rank*64+2,2,rank*64+2+size.first,2+size.second)}
 }
-/** Jumbo corner indexes occupy a clean margin; original deck artwork remains on the face. */
+/** Wider reference card proportions; corner masks preserve the supplied reference's lettering. */
 class CardFace(context: Context, private val art: CardArt, val card: Int, private val largeIndex: Boolean = false): View(context) {
+    companion object { const val WIDTH_HEIGHT_RATIO = .76f }
     private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private fun dp(v:Float)=v*resources.displayMetrics.density
     var indexWidth=0f
@@ -24,46 +30,50 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
     var showBody=true
     init {contentDescription=if(card==54) "未公开底牌" else Rules.cardName(card);isFocusable=largeIndex}
     override fun onDraw(canvas:Canvas) {
-        val edge=dp(1f);val lift=if(largeIndex)dp(12f) else 0f
-        val h=min(height-edge*2-lift,(width-edge*2)*1.5f)
-        val w=h/1.5f;val top=height-edge-h-if(isSelected)lift else 0f
+        val edge=dp(.7f);val lift=if(largeIndex)dp(9f) else 0f
+        val h=min(height-edge*2-lift,(width-dp(2f))/WIDTH_HEIGHT_RATIO)
+        val w=h*WIDTH_HEIGHT_RATIO;val top=height-dp(1f)-h-if(isSelected)lift else 0f
         val box=RectF((width-w)/2,top,(width+w)/2,top+h)
-        paint.style=Paint.Style.FILL;paint.color=if(isSelected)Color.rgb(255,199,56) else Color.rgb(190,192,197)
-        canvas.drawRoundRect(RectF(box.left-edge,box.top-edge,box.right+edge,box.bottom+edge),dp(5f),dp(5f),paint)
-        paint.shader=LinearGradient(box.left,box.top,box.right,box.bottom,Color.WHITE,0xffdedede.toInt(),Shader.TileMode.CLAMP);canvas.drawRoundRect(box,dp(3f),dp(3f),paint);paint.shader=null
+        paint.style=Paint.Style.FILL;paint.color=0x3021283c
+        canvas.drawRoundRect(RectF(box.left-dp(.5f),box.top+dp(1f),box.right+dp(.5f),box.bottom+dp(1.3f)),dp(3f),dp(3f),paint)
+        paint.color=if(isSelected)Color.rgb(255,199,56) else Color.rgb(177,180,185)
+        canvas.drawRoundRect(RectF(box.left-edge,box.top-edge,box.right+edge,box.bottom+edge),dp(3f),dp(3f),paint)
+        paint.shader=LinearGradient(box.left,box.top,box.right,box.bottom,0xfffafafa.toInt(),0xffd6d6d6.toInt(),Shader.TileMode.CLAMP);canvas.drawRoundRect(box,dp(2.5f),dp(2.5f),paint);paint.shader=null
         if(card==54) {canvas.drawBitmap(art.atlas,art.source(card),box,paint);return}
-        val margin=min(if(indexWidth>0)indexWidth-dp(3f) else w*.42f,w*.48f).coerceAtLeast(dp(10f))
+        val margin=min(if(indexWidth>0)indexWidth-dp(2f) else w*.42f,w*.48f).coerceAtLeast(dp(10f))
         // Crop only the central illustration, so the original small corner indexes are not duplicated.
         val src=art.source(card);src.inset(30,42)
         val artBox=RectF(box.left+margin+dp(3f),box.top+h*.30f,box.right-dp(4f),box.bottom-dp(5f))
         if(card>=52&&showBody&&!compactIndex&&artBox.width()>0)canvas.drawBitmap(art.atlas,src,artBox,paint)
         val red=card==53 || (card<52 && card%4 in listOf(1,3))
         paint.color=if(red)Color.rgb(187,30,24) else Color.rgb(21,25,23)
-        paint.typeface=Typeface.create("serif",Typeface.BOLD);paint.textAlign=Paint.Align.CENTER
-        val x=box.left+margin/2+dp(1f)
-        val rank=when(val r=card/4+3){11->"J";12->"Q";13->"K";14->"A";15->"2";else->r.toString()}
-        val available=margin-dp(2f)
+        val ink=paint.color
+        val x=box.left+margin/2+dp(.5f)
+        val available=margin-dp(4f)
+        paint.color=Color.WHITE;paint.colorFilter=PorterDuffColorFilter(ink,PorterDuff.Mode.SRC_IN)
         if(card>=52){
-            paint.textSize=min(h*.155f,available*1.25f)
-            val dy=min(h*.145f,paint.textSize*1.05f)
-            "JOKER".forEachIndexed{i,ch->canvas.drawText(ch.toString(),x,box.top+dp(2f)-paint.fontMetrics.ascent+i*dy,paint)}
+            val ih=h*.84f;val iw=min(available,ih*art.jokerIndex.width/art.jokerIndex.height)
+            canvas.drawBitmap(art.jokerIndex,null,RectF(x-iw/2,box.top+h*.055f,x+iw/2,box.top+h*.055f+ih),paint)
         }else{
-            paint.textSize=min(h*(if(compactIndex).43f else .25f),dp(if(largeIndex)40f else 30f))
-            paint.textScaleX=min(1f,available/paint.measureText(rank))
-            val baseline=box.top+dp(3f)-paint.fontMetrics.ascent
-            canvas.drawText(rank,x,baseline,paint);paint.textScaleX=1f
-            val size=min(h*(if(compactIndex).31f else .19f),margin*.75f)
-            drawSuit(canvas,card%4,x-size/2,baseline+dp(2f),size)
+            val glyph=art.rankSource(card)
+            val rh=h*(if(compactIndex).43f else .25f)*(if(card/4==9)1.08f else 1f)
+            val rw=min(available,rh*glyph.width()/glyph.height())
+            val ry=box.top+h*.055f
+            canvas.drawBitmap(art.ranks,glyph,RectF(x-rw/2,ry,x+rw/2,ry+rh),paint)
+            paint.colorFilter=null;paint.color=ink
+            val size=min(h*(if(compactIndex).29f else .16f),margin*.67f)
+            drawSuit(canvas,card%4,x-size/2,ry+rh+h*.025f,size)
         }
+        paint.colorFilter=null;paint.color=ink
         if(card<52&&showBody&&!compactIndex&&h>dp(55f)){
-            val pip=min(w*.47f,h*.31f)
+            val pip=min(w*.47f,h*.38f)
             drawSuit(canvas,card%4,box.right-pip-dp(5f),box.bottom-pip-dp(8f),pip)
         }
         if(landlordRibbon){
             val sz=w*.46f;paint.color=0xffffa92b.toInt();val triangle=Path().apply{moveTo(box.right-sz,box.top);lineTo(box.right,box.top);lineTo(box.right,box.top+sz);close()};canvas.drawPath(triangle,paint)
-            canvas.save();canvas.rotate(45f,box.right-sz*.32f,box.top+sz*.32f);paint.color=Color.WHITE;paint.typeface=Typeface.DEFAULT_BOLD;paint.textSize=sz*.25f;canvas.drawText("地主",box.right-sz*.32f,box.top+sz*.4f,paint);canvas.restore()
+            canvas.save();canvas.rotate(45f,box.right-sz*.32f,box.top+sz*.32f);paint.color=Color.WHITE;paint.typeface=Typeface.DEFAULT_BOLD;paint.textSize=sz*.25f;paint.textAlign=Paint.Align.CENTER;canvas.drawText("地主",box.right-sz*.32f,box.top+sz*.4f,paint);canvas.restore()
         }
-        if(isSelected){paint.color=Color.rgb(220,151,18);canvas.drawRect(box.left,box.bottom-dp(5f),box.right,box.bottom,paint)}
+        if(isSelected){paint.color=Color.rgb(240,183,58);canvas.drawRect(box.left,box.bottom-dp(1f),box.right,box.bottom,paint)}
     }
     private fun drawSuit(canvas:Canvas,suit:Int,x:Float,y:Float,size:Float){
         canvas.save();canvas.translate(x,y);canvas.scale(size,size)
@@ -91,8 +101,10 @@ class HandLayout(context:Context):ViewGroup(context) {
     private val slop=android.view.ViewConfiguration.get(context).scaledTouchSlop
     override fun onMeasure(ws:Int,hs:Int){
         val w=MeasureSpec.getSize(ws);val h=MeasureSpec.getSize(hs);setMeasuredDimension(w,h)
-        val cw=min(((h-paddingTop-paddingBottom-16*resources.displayMetrics.density)/1.5f).toInt()+4,(w*.32f).toInt()).coerceAtLeast(1)
-        stride=if(childCount>1)min(cw*.62f,(w-paddingLeft-paddingRight-cw).toFloat()/19f) else 0f
+        val d=resources.displayMetrics.density
+        val cw=min(((h-paddingTop-paddingBottom-13*d)*CardFace.WIDTH_HEIGHT_RATIO+2*d).toInt(),(w*.32f).toInt()).coerceAtLeast(1)
+        val spread=.955f+.045f*((childCount-17)/3f).coerceIn(0f,1f)
+        stride=if(childCount>1)min(cw*.62f,(w-paddingLeft-paddingRight-cw).toFloat()/19f)*spread else 0f
         start=(w-cw-stride*(childCount-1).coerceAtLeast(0))/2f
         for(i in 0 until childCount){
             val v=getChildAt(i) as CardFace;v.showBody=i==childCount-1;v.indexWidth=if(childCount==1)cw*.42f else stride
@@ -144,7 +156,7 @@ class HandLayout(context:Context):ViewGroup(context) {
     override fun performClick():Boolean{super.performClick();return true}
 }
 /** Overlap to keep played cards large; very long combinations wrap before indexes become cramped. */
-class CardStrip(context:Context,private val art:CardArt,private val maxColumns:Int=Int.MAX_VALUE):ViewGroup(context) {
+class CardStrip(context:Context,private val art:CardArt,private val maxColumns:Int=Int.MAX_VALUE,private val align:Int=Gravity.CENTER_HORIZONTAL):ViewGroup(context) {
     private var columns=1;private var rowHeight=1;private var cardWidth=1;private var step=0f
     fun show(cards:List<Int>){removeAllViews();cards.forEach{addView(CardFace(context,art,it))};requestLayout()}
     override fun onMeasure(ws:Int,hs:Int){
@@ -152,13 +164,14 @@ class CardStrip(context:Context,private val art:CardArt,private val maxColumns:I
         val d=resources.displayMetrics.density
         columns=if(childCount>maxColumns)maxColumns else if(childCount>12 && h>=100*d) (childCount+1)/2 else childCount.coerceAtLeast(1)
         val rows=if(childCount>columns)2 else 1;rowHeight=h/rows
-        cardWidth=min((rowHeight/1.5f).toInt(),(w/(1+(columns-1)*.38f)).toInt()).coerceAtLeast(1)
+        cardWidth=min((rowHeight*CardFace.WIDTH_HEIGHT_RATIO).toInt(),(w/(1+(columns-1)*.38f)).toInt()).coerceAtLeast(1)
         step=if(columns>1)min(cardWidth*.64f,(w-cardWidth).toFloat()/(columns-1)) else 0f
-        for(i in 0 until childCount){val v=getChildAt(i) as CardFace;v.compactIndex=rows>1;v.indexWidth=if(columns==1)cardWidth*.42f else step
+        for(i in 0 until childCount){val v=getChildAt(i) as CardFace;v.compactIndex=rows>1;v.indexWidth=if(columns==1)cardWidth*.42f else step;v.showBody=i==childCount-1||i%columns==columns-1
             v.measure(MeasureSpec.makeMeasureSpec(cardWidth,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(rowHeight,MeasureSpec.EXACTLY))}
     }
     override fun onLayout(c:Boolean,l:Int,t:Int,r:Int,b:Int){
-        for(i in 0 until childCount){val row=i/columns;val col=i%columns;val count=min(columns,childCount-row*columns);val start=(width-cardWidth-step*(count-1))/2
+        for(i in 0 until childCount){val row=i/columns;val col=i%columns;val count=min(columns,childCount-row*columns);val spare=width-cardWidth-step*(count-1)
+            val start=when(align and Gravity.HORIZONTAL_GRAVITY_MASK){Gravity.LEFT->0f;Gravity.RIGHT->spare;else->spare/2}
             val x=(start+col*step).toInt();getChildAt(i).layout(x,row*rowHeight,x+cardWidth,(row+1)*rowHeight)}
     }
 }

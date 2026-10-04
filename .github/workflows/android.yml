@@ -48,14 +48,14 @@ jobs:
             app/build/outputs/apk/debug/app-debug.apk
             app/build/reports/
             device-results/
-      - name: Publish native v3.2.1
+      - name: Publish native v3.3.0
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if ! gh release view v3.2.1 >/dev/null 2>&1; then
-            cp app/build/outputs/apk/debug/app-debug.apk doudizhu-3.2.1-native.apk
-            gh release create v3.2.1 doudizhu-3.2.1-native.apk device-results/*.png --target "$GITHUB_SHA" --title "闲来斗地主 v3.2.1 · 蓝色经典牌桌版" --notes-file docs/release-v3.2.1.md --prerelease
+          if ! gh release view v3.3.0 >/dev/null 2>&1; then
+            cp app/build/outputs/apk/debug/app-debug.apk doudizhu-3.3.0-native.apk
+            gh release create v3.3.0 doudizhu-3.3.0-native.apk device-results/*.png --target "$GITHUB_SHA" --title "闲来斗地主 v3.3.0 · 参考牌面与实录音效版" --notes-file docs/release-v3.3.0.md --prerelease
           else
-            gh release upload v3.2.1 device-results/*.png --clobber
+            gh release upload v3.3.0 device-results/*.png --clobber
           fi

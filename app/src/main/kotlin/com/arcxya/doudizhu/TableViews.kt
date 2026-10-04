@@ -11,7 +11,65 @@ import kotlin.math.min
 class TableBackdrop(context:Context):View(context){
     private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val bitmap=context.assets.open("blue_table.webp").use{BitmapFactory.decodeStream(it)}
+    init{
+        val color=ColorMatrix().apply{setSaturation(.74f)}
+        color.postConcat(ColorMatrix(floatArrayOf(1.08f,0f,0f,0f,0f, 0f,.98f,0f,0f,0f, 0f,0f,.94f,0f,0f, 0f,0f,0f,1f,0f)))
+        paint.colorFilter=ColorMatrixColorFilter(color)
+    }
     override fun onDraw(canvas:Canvas){canvas.drawBitmap(bitmap,null,RectF(0f,0f,width.toFloat(),height.toFloat()),paint)}
+}
+/** Compact, low-contrast table mark; drawn independently of accessibility font scale. */
+class TableWordmark(context:Context):View(context){
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{typeface=Typeface.create("sans-serif",Typeface.BOLD_ITALIC);textAlign=Paint.Align.CENTER}
+    init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
+    override fun onDraw(c:Canvas){
+        c.save();c.scale(width/192f,height/106f)
+        fun line(text:String,size:Float,baseline:Float){
+            p.textSize=size;p.style=Paint.Style.STROKE;p.strokeWidth=2f;p.color=0x24333d72;c.drawText(text,96f,baseline,p)
+            p.style=Paint.Style.FILL;p.color=0x403b548b;c.drawText(text,96f,baseline,p)
+        }
+        line("单机",37f,42f);line("斗地主",46f,87f)
+        p.color=0x283b548b;p.strokeWidth=1.5f;c.drawLine(32f,94f,163f,94f,p);c.restore()
+    }
+}
+/** Native pill skin with a 48 dp touch target and the smaller reference-sized face. */
+class ClassicActionButton(context:Context,private val primary:Boolean):android.widget.Button(context){
+    private val fill=Paint(Paint.ANTI_ALIAS_FLAG)
+    override fun onDraw(c:Canvas){
+        val d=resources.displayMetrics.density
+        val face=RectF(6*d,height/2f-14*d,width-6*d,height/2f+14*d)
+        fill.shader=null;fill.color=if(primary)0x80592f08.toInt() else 0x80393081.toInt()
+        c.drawRoundRect(RectF(face.left,face.top+2*d,face.right,face.bottom+2*d),15*d,15*d,fill)
+        fill.shader=LinearGradient(0f,face.top,0f,face.bottom,
+            if(primary)intArrayOf(0xffffe78c.toInt(),0xffffbc3e.toInt(),0xfff0991e.toInt()) else intArrayOf(0xffb7e7ff.toInt(),0xff98acff.toInt(),0xff8072e9.toInt()),floatArrayOf(0f,.46f,1f),Shader.TileMode.CLAMP)
+        c.drawRoundRect(face,15*d,15*d,fill);fill.shader=null
+        fill.style=Paint.Style.STROKE;fill.strokeWidth=d;fill.color=if(primary)0xffffd66d.toInt() else 0xffb5c8ff.toInt();c.drawRoundRect(face,15*d,15*d,fill);fill.style=Paint.Style.FILL
+        val y=height/2f-(paint.fontMetrics.ascent+paint.fontMetrics.descent)/2
+        paint.textAlign=Paint.Align.CENTER;paint.style=Paint.Style.STROKE;paint.strokeWidth=1.4f*d;paint.color=if(primary)0xffa26426.toInt() else 0xff5268ad.toInt()
+        c.drawText(text.toString(),width/2f,y,paint);paint.style=Paint.Style.FILL;paint.color=Color.WHITE
+        c.drawText(text.toString(),width/2f,y,paint)
+    }
+}
+class RoleBadge:Drawable(){
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+    override fun draw(c:Canvas){
+        val b=RectF(bounds);val path=Path().apply{moveTo(b.left+b.height()*.25f,b.top);lineTo(b.right-b.height()*.25f,b.top);lineTo(b.right,b.centerY());lineTo(b.right-b.height()*.25f,b.bottom);lineTo(b.left+b.height()*.25f,b.bottom);lineTo(b.left,b.centerY());close()}
+        p.shader=LinearGradient(0f,b.top,0f,b.bottom,0xffe4b459.toInt(),0xffb5672b.toInt(),Shader.TileMode.CLAMP);p.style=Paint.Style.FILL;c.drawPath(path,p);p.shader=null
+        p.style=Paint.Style.STROKE;p.strokeWidth=1.5f;p.color=0xffffd984.toInt();c.drawPath(path,p);p.style=Paint.Style.FILL
+    }
+    override fun setAlpha(a:Int){p.alpha=a};override fun setColorFilter(f:ColorFilter?){p.colorFilter=f}
+    @Deprecated("Deprecated in Android") override fun getOpacity()=PixelFormat.TRANSLUCENT
+}
+class CoinIcon(private val size:Int):Drawable(){
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+    override fun getIntrinsicWidth()=size;override fun getIntrinsicHeight()=size
+    override fun draw(c:Canvas){
+        val b=RectF(bounds);b.inset(size*.15f,size*.05f);c.save();c.rotate(-25f,b.centerX(),b.centerY())
+        p.shader=LinearGradient(b.left,b.top,b.right,b.bottom,0xfffff298.toInt(),0xffefaa28.toInt(),Shader.TileMode.CLAMP);p.style=Paint.Style.FILL;c.drawOval(b,p);p.shader=null
+        p.color=0xffffe67c.toInt();p.strokeWidth=size*.08f;p.style=Paint.Style.STROKE;c.drawOval(b,p);p.style=Paint.Style.FILL;c.restore()
+    }
+    override fun setAlpha(a:Int){p.alpha=a};override fun setColorFilter(f:ColorFilter?){p.colorFilter=f}
+    @Deprecated("Deprecated in Android") override fun getOpacity()=PixelFormat.TRANSLUCENT
 }
 /** Small circular portraits replace the full-body courtyard characters. */
 class SeatAvatar(context:Context,asset:String):View(context){

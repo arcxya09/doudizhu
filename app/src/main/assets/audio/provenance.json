@@ -1,0 +1,163 @@
+{
+  "sample_rate": 22050,
+  "bgm": {
+    "source_start_seconds": 2.12,
+    "loop_seconds": 16.695646258503402,
+    "crossfade_seconds": 0.12,
+    "full_track": false,
+    "method": "no-action reference spectra, repeated-section coherence, foreground mask",
+    "peak": 0.8799999999999999,
+    "rms": 0.11617978327503382,
+    "boundary_jump": 0.020656119686832824,
+    "adjacent_sample_jump_p99": 0.15717750826901872,
+    "mixed_event_window_attenuation": [
+      {
+        "source_seconds": [
+          7.75,
+          8.76
+        ],
+        "rms_reduction_db": 19.032470268345566
+      },
+      {
+        "source_seconds": [
+          10.5,
+          11.6
+        ],
+        "rms_reduction_db": 5.831342829983898
+      },
+      {
+        "source_seconds": [
+          12,
+          14.4
+        ],
+        "rms_reduction_db": 14.695443556836569
+      },
+      {
+        "source_seconds": [
+          14.4,
+          15.5
+        ],
+        "rms_reduction_db": 11.975740761597095
+      },
+      {
+        "source_seconds": [
+          16.85,
+          18.95
+        ],
+        "rms_reduction_db": 26.117808957524677
+      }
+    ],
+    "listening_review": false
+  },
+  "cues": {
+    "select": {
+      "source_seconds": [
+        0.915,
+        1.105
+      ],
+      "duration_seconds": 0.19002267573696144,
+      "peak": 0.5612334933547476,
+      "rms": 0.0978505272283778
+    },
+    "play": {
+      "source_seconds": [
+        1.98,
+        2.17
+      ],
+      "duration_seconds": 0.18997732426303854,
+      "peak": 0.65,
+      "rms": 0.04428663775295758
+    },
+    "bid": {
+      "source_seconds": [
+        7.825,
+        8.665
+      ],
+      "duration_seconds": 0.84,
+      "peak": 0.65,
+      "rms": 0.0553517615306346
+    },
+    "bid_pass": {
+      "source_seconds": [
+        0.915,
+        1.105
+      ],
+      "duration_seconds": 0.19002267573696144,
+      "peak": 0.5612334933547476,
+      "rms": 0.0978505272283778,
+      "event": "neutral button cue; no recording of 不叫 exists in source"
+    },
+    "pass": {
+      "source_seconds": [
+        26.61,
+        27.34
+      ],
+      "duration_seconds": 0.7300226757369614,
+      "peak": 0.3882103285440024,
+      "rms": 0.04006712283259175
+    },
+    "pair_k": {
+      "source_seconds": [
+        29.52,
+        30.46
+      ],
+      "duration_seconds": 0.94,
+      "peak": 0.3204644879259125,
+      "rms": 0.058663392927637545
+    },
+    "pair_a": {
+      "source_seconds": [
+        31.59,
+        32.57
+      ],
+      "duration_seconds": 0.98,
+      "peak": 0.6209065552183046,
+      "rms": 0.12
+    },
+    "pair_2": {
+      "source_seconds": [
+        35.135,
+        36.0
+      ],
+      "duration_seconds": 0.8650340136054422,
+      "peak": 0.5602678985560912,
+      "rms": 0.12000000000000001
+    },
+    "airplane": {
+      "source_seconds": [
+        23.82,
+        26.19
+      ],
+      "duration_seconds": 2.3699773242630386,
+      "peak": 0.5251222118201875,
+      "rms": 0.07065205360491159
+    },
+    "bomb": {
+      "source_seconds": [
+        40.71,
+        43.39
+      ],
+      "duration_seconds": 2.68,
+      "peak": 0.65,
+      "rms": 0.08133984629753988
+    },
+    "rocket": {
+      "source_seconds": [
+        46.56,
+        49.42
+      ],
+      "duration_seconds": 2.86,
+      "peak": 0.65,
+      "rms": 0.11364271251826337
+    },
+    "win": {
+      "source_seconds": [
+        51.66,
+        54.17
+      ],
+      "duration_seconds": 2.5099773242630388,
+      "peak": 0.65,
+      "rms": 0.07954656347707335
+    }
+  }
+}
