@@ -151,7 +151,7 @@ class MainActivity: Activity() {
         selection=label("",12f);table.place(selection,.45f,.938f,.26f,.052f)
         record=label("",11f,0xffdbebff.toInt()).apply{visibility=View.GONE};table.place(record,.585f,.015f,.18f,.052f)
         multiple=label("",17f,0xffffe591.toInt()).apply{background=background(0x55402f55)};table.place(multiple,.75f,.939f,.12f,.05f)
-        val help=Button(this).apply{text="帮助";textSize=13f;isAllCaps=false;setTextColor(Color.WHITE);background=background(0xff53c99c.toInt(),0xffa4edce.toInt());minHeight=0;minimumHeight=0;minWidth=0;minimumWidth=0;setPadding(0,0,0,0);setOnClickListener{showSettings()}}
+        val help=Button(this).apply{text="帮助";textSize=13f;isAllCaps=false;includeFontPadding=false;maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(10,13,1,android.util.TypedValue.COMPLEX_UNIT_SP);setTextColor(Color.WHITE);background=background(0xff53c99c.toInt(),0xffa4edce.toInt());minHeight=0;minimumHeight=0;minWidth=0;minimumWidth=0;setPadding(0,0,0,0);setOnClickListener{showSettings()}}
         table.place(help,.893f,.938f,.077f,.055f)
         effectBanner=label("",28f,0xffffd35b.toInt()).apply{alpha=0f;setTypeface(null,Typeface.BOLD_ITALIC);setShadowLayer(dp(2).toFloat(),0f,dp(2).toFloat(),0xff564222.toInt())}
         table.place(effectBanner,.32f,.345f,.36f,.09f)
@@ -166,6 +166,7 @@ class MainActivity: Activity() {
         val clock=TurnClock(this,"∞").apply{contentDescription="玩家不限时"}
         actions.addView(clock,LinearLayout.LayoutParams(dp(43),dp(48)).apply{setMargins(dp(2),0,dp(2),0)})
     }
+    private fun displayCards(cards:List<Int>)=cards.sortedWith(compareByDescending<Int>{Rules.rank(it)}.thenBy{it%4})
     private fun render(){
         stakes.text="单机${levels[game.level]}场  底分：${if(game.highBid>0)game.highBid else "—"}"
         stakes.visibility=View.VISIBLE
@@ -184,14 +185,14 @@ class MainActivity: Activity() {
         counter.show(game)
         counter.visibility=if(game.landlord<0)View.INVISIBLE else View.VISIBLE
         bottom.visibility=counter.visibility
-        for(p in 0..2){seatCards[p].visibility=if(game.turn==p && game.phase!="over")View.INVISIBLE else View.VISIBLE;people[p].active=game.turn==p&&game.phase!="over";seatCards[p].show(seatMoves[p].asReversed());seatCards[p].contentDescription="${names[p]}出牌："+seatMoves[p].joinToString("、"){Rules.cardName(it)}}
+        for(p in 0..2){seatCards[p].visibility=if(game.turn==p && game.phase!="over")View.INVISIBLE else View.VISIBLE;people[p].active=game.turn==p&&game.phase!="over";seatCards[p].show(displayCards(seatMoves[p]));seatCards[p].contentDescription="${names[p]}出牌："+seatMoves[p].joinToString("、"){Rules.cardName(it)}}
         bottom.show(if(game.landlord<0)listOf(54,54,54) else game.bottom.asReversed())
         notice.text=when(game.phase){"bid"->if(game.turn==0)"轮到你叫地主" else "${names[game.turn]}正在叫分";"redeal"->"无人叫分，重新发牌";"over"->if(game.delta>0)"本局获胜" else "本局结束";else->if(game.turn==0)"轮到你出牌" else "${names[game.turn]}正在出牌"}
         notice.announceForAccessibility(notice.text)
         selfName.text="${role(0).ifEmpty{"我"}} · ${game.hands[0].size}张"
         info.text=score.toString();record.text="$wins 胜 / $games 局";multiple.text="×${game.multiplier} 倍"
         selected.retainAll(game.hands[0].toSet());hand.removeAllViews()
-        game.hands[0].asReversed().forEachIndexed { index,card->
+        displayCards(game.hands[0]).forEachIndexed { index,card->
             val face=CardFace(this,art,card,true);face.landlordRibbon=game.landlord==0 && index==game.hands[0].lastIndex;face.isSelected=card in selected;face.isEnabled=game.phase=="play"&&game.turn==0&&!autoPlay
             face.setOnClickListener{audio.cue("select");if(card in selected)selected.remove(card) else selected.add(card);face.isSelected=card in selected;refreshSelection()}
             hand.addView(face)
@@ -310,8 +311,8 @@ class MainActivity: Activity() {
     internal fun testAudio():AudioEngine=audio
     internal fun testBidding(){
         handler.removeCallbacksAndMessages(null);seatMoves=Array(3){emptyList()}
-        val own=listOf(53,52,48,51,42,43,36,37,38,39,28,29,31,26,18,19,6)
-        val kitty=listOf(24,25,7);val rest=(0..53).filter{it !in own && it !in kitty}
+        val own=listOf(53,52,48,51,40,43,36,37,38,39,28,29,31,24,16,19,6)
+        val kitty=listOf(25,26,7);val rest=(0..53).filter{it !in own && it !in kitty}
         game=Game.create(1,kotlin.random.Random(42)).copy(hands=mutableListOf(Rules.sorted(own).toMutableList(),Rules.sorted(rest.take(17)).toMutableList(),Rules.sorted(rest.drop(17)).toMutableList()),bottom=kitty)
         game.turn=0;running=false;selected.clear();render()
     }

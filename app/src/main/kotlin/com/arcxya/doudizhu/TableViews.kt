@@ -42,7 +42,7 @@ class ClassicActionButton(context:Context,private val primary:Boolean):android.w
         c.drawRoundRect(RectF(face.left,face.top+2*d,face.right,face.bottom+2*d),15*d,15*d,fill)
         fill.shader=LinearGradient(0f,face.top,0f,face.bottom,
             if(primary)intArrayOf(0xffffe78c.toInt(),0xffffbc3e.toInt(),0xfff0991e.toInt()) else intArrayOf(0xffb7e7ff.toInt(),0xff98acff.toInt(),0xff8072e9.toInt()),floatArrayOf(0f,.46f,1f),Shader.TileMode.CLAMP)
-        c.drawRoundRect(face,15*d,15*d,fill);fill.shader=null
+        fill.alpha=255;c.drawRoundRect(face,15*d,15*d,fill);fill.shader=null
         fill.style=Paint.Style.STROKE;fill.strokeWidth=d;fill.color=if(primary)0xffffd66d.toInt() else 0xffb5c8ff.toInt();c.drawRoundRect(face,15*d,15*d,fill);fill.style=Paint.Style.FILL
         val y=height/2f-(paint.fontMetrics.ascent+paint.fontMetrics.descent)/2
         paint.textAlign=Paint.Align.CENTER;paint.style=Paint.Style.STROKE;paint.strokeWidth=1.4f*d;paint.color=if(primary)0xffa26426.toInt() else 0xff5268ad.toInt()
