@@ -102,7 +102,7 @@ class MainActivity: Activity() {
         table=ReferenceTable(this);setContentView(table)
         table.place(TableBackdrop(this),0f,0f,1f,1f)
         fun label(value:String,size:Float=17f,color:Int=Color.WHITE)=text(value,size,color).apply{
-            maxLines=1;setTypeface(null,Typeface.BOLD);setAutoSizeTextTypeUniformWithConfiguration(10,size.toInt(),1,android.util.TypedValue.COMPLEX_UNIT_SP)
+            maxLines=1;setTypeface(null,Typeface.BOLD);setAutoSizeTextTypeUniformWithConfiguration(minOf(10,size.toInt()-1),size.toInt(),1,android.util.TypedValue.COMPLEX_UNIT_SP)
             setShadowLayer(dp(1).toFloat(),0f,dp(1).toFloat(),0xff274979.toInt())
         }
         fun tool(label:String,icon:Int,action:()->Unit)=Button(this).apply{
