@@ -2,6 +2,7 @@ package com.arcxya.doudizhu
 
 /** Decide from the position before a move, while the actor's hand and target still exist. */
 internal object AudioCues {
+    fun forLandlordCall(called: Boolean) = if (called) "bid" else "bid_pass"
     fun forBid(points: Int) = if (points in 1..3) "bid_$points" else "bid_pass"
 
     fun forMove(move: Move?, hand: List<Int>, target: Move?): String = when (move?.kind) {

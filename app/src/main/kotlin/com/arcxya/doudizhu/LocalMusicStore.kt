@@ -7,6 +7,7 @@ import android.util.AtomicFile
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.InputStream
 
@@ -26,15 +27,19 @@ internal class LocalMusicStore(private val context: Context) {
 
     fun stage(uri: Uri): Selection {
         var name = "本地音乐"
-        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-                if (sizeIndex >= 0 && !cursor.isNull(sizeIndex) && cursor.getLong(sizeIndex) > MAX_BYTES)
-                    throw IOException("请选择不超过 32 MB 的音频文件")
-                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (nameIndex >= 0) name = cursor.getString(nameIndex) ?: name
+        var advertisedSize = 0L
+        // Metadata is optional: some local providers can open audio but reject queries.
+        runCatching {
+            context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                    if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) advertisedSize = cursor.getLong(sizeIndex)
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (nameIndex >= 0) name = cursor.getString(nameIndex) ?: name
+                }
             }
         }
+        if (advertisedSize > MAX_BYTES) throw IOException("请选择不超过 32 MB 的音频文件")
         val input = context.contentResolver.openInputStream(uri) ?: throw IOException("无法读取所选文件")
         return stage(input, name)
     }
@@ -82,6 +87,25 @@ internal class LocalMusicStore(private val context: Context) {
             throw error
         }
     }
+
+    /** The shared file worker serializes this check with every selection commit. */
+    fun discardIfUnselected(selection: Selection) {
+        val filename = committedFilename() ?: return
+        if (filename != selection.file.name) selection.file.delete()
+    }
+
+    /** A later successful import always wins over recovery of an older broken track. */
+    fun forgetIfSelected(selection: Selection) {
+        if (committedFilename() == selection.file.name) commit(null)
+        discardIfUnselected(selection)
+    }
+
+    // Unknown or unreadable metadata must never be mistaken for an empty selection.
+    private fun committedFilename(): String? = try {
+        selectionFile.openRead().bufferedReader().use { JSONObject(it.readText()).getString("file") }
+    } catch (_: FileNotFoundException) {
+        if (!selectionFile.baseFile.exists() && !File(directory, "selection.json.bak").exists()) "" else null
+    } catch (_: Exception) { null }
 
     private fun cleanName(name: String) = name.replace(Regex("[\\p{Cntrl}]"), " ").trim().take(80).ifEmpty { "本地音乐" }
 

@@ -63,11 +63,11 @@ class MainActivity: Activity() {
     private fun text(value:String,size:Float=18f,color:Int=Color.WHITE)=TextView(this).apply { text=value;textSize=size;setTextColor(color);gravity=Gravity.CENTER;includeFontPadding=false }
     private fun background(color:Int,stroke:Int=Color.TRANSPARENT)=GradientDrawable().apply {setColor(color);cornerRadius=dp(10).toFloat();setStroke(dp(2),stroke)}
     private fun button(label:String,primary:Boolean=false,action:()->Unit)=ClassicActionButton(this,primary).apply {
-        text=label;textSize=15f;isAllCaps=false;setTypeface(null,Typeface.BOLD);maxLines=1
+        text=label;textSize=15f;isAllCaps=false;setTypeface(null,Typeface.BOLD);maxLines=1;gravity=Gravity.CENTER;includeFontPadding=false
         setAutoSizeTextTypeUniformWithConfiguration(12,15,1,android.util.TypedValue.COMPLEX_UNIT_SP)
         setTextColor(Color.WHITE);background=null;stateListAnimator=null;elevation=0f
         minHeight=dp(48);minimumHeight=dp(48);minWidth=0;minimumWidth=0
-        setPadding(dp(10),dp(13),dp(10),dp(13));setOnClickListener{action()}
+        setPadding(dp(10),dp(8),dp(10),dp(8));setOnClickListener{action()}
     }
     private fun buttonEnabled(b:Button,value:Boolean){b.isEnabled=value;b.alpha=if(value)1f else .54f}
     override fun onCreate(savedInstanceState:Bundle?) {
@@ -109,7 +109,7 @@ class MainActivity: Activity() {
             setShadowLayer(dp(1).toFloat(),0f,dp(1).toFloat(),0xff274979.toInt())
         }
         fun tool(label:String,icon:Int,action:()->Unit)=Button(this).apply{
-            text=label;textSize=10f;isAllCaps=false;setTextColor(Color.WHITE);setTypeface(null,Typeface.NORMAL)
+            text=label;textSize=10f;isAllCaps=false;gravity=Gravity.CENTER;includeFontPadding=false;setTextColor(Color.WHITE);setTypeface(null,Typeface.NORMAL)
             setShadowLayer(dp(1).toFloat(),0f,dp(1).toFloat(),0xff26467b.toInt());background=null
             minWidth=0;minimumWidth=0;minHeight=0;minimumHeight=0;setPadding(0,0,0,0)
             setCompoundDrawablesWithIntrinsicBounds(null,TableIcon(icon,dp(16)),null,null)
@@ -215,10 +215,9 @@ class MainActivity: Activity() {
         selection.text=if(selected.isEmpty())if(game.phase=="over")"本局 ${game.delta}" else "" else "已选 ${selected.size} 张 · ${m?.kind?.title?:"牌型不完整"}${if(m!=null&&!valid)" · 压不过上家" else ""}"
         playButton?.let{buttonEnabled(it,selected.isNotEmpty()&&valid)}
     }
-    private fun humanBid(n:Int){if(game.turn!=0||game.phase!="bid")return;game.bid(n);audio.cue(AudioCues.forBid(n));advance()}
+    private fun humanBid(n:Int){if(game.turn!=0||game.phase!="bid")return;game.bid(n);audio.cue(AudioCues.forLandlordCall(n>0));advance()}
     private fun humanPlay(cards:List<Int>){
         if(game.turn!=0||game.phase!="play")return
-        if(cards.isEmpty()&&selected.isNotEmpty()){selection.text="已经选牌，请先点“重选”再不出";audio.cue("error");return}
         try{val cue=AudioCues.forMove(Rules.classify(cards),game.hands[game.turn],game.last);playCards(cards);selected.clear();audio.cue(cue);advance()}
         catch(e:IllegalArgumentException){selection.text=e.message;audio.cue("error")}
     }
@@ -243,6 +242,7 @@ class MainActivity: Activity() {
     private fun playCards(cards:List<Int>){
         val actor=game.turn;val newTrick=game.last==null
         game.play(cards)
+        if(newTrick)for(p in 0..2)if(p!=actor)game.status[p]="等待出牌"
         if(cards.isNotEmpty() && game.last?.kind in listOf(Kind.BOMB,Kind.ROCKET)){
             effectBanner.animate().cancel();effectBanner.alpha=1f
             effectBanner.text=if(game.last?.kind==Kind.ROCKET)"王炸 ×2" else "炸弹 ×2"

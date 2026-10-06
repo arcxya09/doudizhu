@@ -36,6 +36,8 @@ class AudioEngine(context: Context) {
     private val store = LocalMusicStore(this.context)
     private var currentSelection: LocalMusicStore.Selection? = null
     private var pendingPlayer: MediaPlayer? = null
+    private var pendingSelection: LocalMusicStore.Selection? = null
+    private var recoverDefault = false
     private var preparationTimeout: Runnable? = null
     private val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME)
         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
@@ -108,7 +110,7 @@ class AudioEngine(context: Context) {
             val result = runCatching(stage)
             handler.post {
                 if (released) {
-                    result.getOrNull()?.let { imported -> FILE_WORKER.execute { imported.file.delete() } }
+                    result.getOrNull()?.let { imported -> discard(imported) }
                     return@post
                 }
                 val imported = result.getOrNull()
@@ -117,7 +119,7 @@ class AudioEngine(context: Context) {
                 } else prepareCandidate(imported, { candidate ->
                     commitCandidate(candidate, imported, onResult)
                 }, { message ->
-                    FILE_WORKER.execute { imported.file.delete() }
+                    discard(imported)
                     finishFailure(message, onResult)
                 })
             }
@@ -134,11 +136,11 @@ class AudioEngine(context: Context) {
     /** Preparing a replacement never touches the currently playing music. */
     private fun prepareCandidate(selection: LocalMusicStore.Selection?, ready: (MediaPlayer) -> Unit, failed: (String) -> Unit) {
         val candidate = MediaPlayer()
-        pendingPlayer = candidate
+        pendingPlayer = candidate; pendingSelection = selection
         fun fail() {
             if (pendingPlayer !== candidate) return
             preparationTimeout?.let { handler.removeCallbacks(it) }; preparationTimeout = null
-            pendingPlayer = null; candidate.release()
+            pendingPlayer = null; pendingSelection = null; candidate.release()
             if (!released) failed("无法播放这个文件，请选择有效的音频")
         }
         candidate.setOnPreparedListener {
@@ -170,16 +172,17 @@ class AudioEngine(context: Context) {
             handler.post {
                 if (released) {
                     // A completed atomic selection remains valid for the next Activity.
-                    if (result.isFailure) selection?.let { FILE_WORKER.execute { it.file.delete() } }
+                    selection?.let { discard(it) }
+                    if (result.isSuccess) previous?.let { discard(it) }
                     return@post
                 }
                 if (result.isSuccess) {
                     adopt(candidate, selection)
-                    previous?.let { old -> FILE_WORKER.execute { if (old.file != selection?.file) old.file.delete() } }
+                    previous?.let { discard(it) }
                     onResult(MusicImportResult(true, if (selection == null) "已恢复默认音乐" else "已使用所选音乐"))
                 } else {
-                    if (pendingPlayer === candidate) { pendingPlayer = null; candidate.release() }
-                    selection?.let { FILE_WORKER.execute { it.file.delete() } }
+                    if (pendingPlayer === candidate) { pendingPlayer = null; pendingSelection = null; candidate.release() }
+                    selection?.let { discard(it) }
                     finishFailure("无法保存音乐，原来的音乐已保留", onResult)
                 }
             }
@@ -189,7 +192,13 @@ class AudioEngine(context: Context) {
     private fun adopt(candidate: MediaPlayer, selection: LocalMusicStore.Selection?) {
         if (released) return
         player?.release()
-        player = candidate; pendingPlayer = null; currentSelection = selection
+        player = candidate; pendingPlayer = null; pendingSelection = null; currentSelection = selection
+        recoverDefault = false
+        candidate.setOnErrorListener { failed, what, extra ->
+            Log.w("OfflineAudio", "Playback failed: $what/$extra")
+            recoverMusic(failed)
+            true
+        }
         isMusicBusy = false
         syncMusic()
         onMusicChanged?.invoke()
@@ -198,17 +207,60 @@ class AudioEngine(context: Context) {
     private fun finishFailure(message: String, callback: (MusicImportResult) -> Unit) {
         isMusicBusy = false; onMusicChanged?.invoke()
         callback(MusicImportResult(false, message))
+        recoverMusicIfNeeded()
+    }
+
+    private fun discard(selection: LocalMusicStore.Selection) {
+        FILE_WORKER.execute {
+            runCatching { store.discardIfUnselected(selection) }
+                .onFailure { Log.w("OfflineAudio", "Cannot clean unused local music", it) }
+        }
+    }
+
+    private fun recoverMusic(failed: MediaPlayer) {
+        if (released || player !== failed) return
+        val broken = currentSelection
+        player = null; currentSelection = null
+        failed.setOnErrorListener(null)
+        failed.release()
+        if (broken != null) {
+            recoverDefault = true
+            FILE_WORKER.execute {
+                runCatching { store.forgetIfSelected(broken) }
+                    .onFailure { Log.w("OfflineAudio", "Cannot clear broken local music", it) }
+            }
+        }
+        // A replacement being prepared or committed owns pendingPlayer until it finishes.
+        recoverMusicIfNeeded()
+        onMusicChanged?.invoke()
+    }
+
+    private fun recoverMusicIfNeeded() {
+        if (released || isMusicBusy || !recoverDefault) return
+        recoverDefault = false; isMusicBusy = true
+        loadInitialMusic(null)
+    }
+
+    private inline fun withMusicPlayer(action: (MediaPlayer) -> Unit) {
+        val current = player ?: return
+        try { action(current) }
+        catch (error: IllegalStateException) {
+            Log.w("OfflineAudio", "Cannot use music player; recovering", error)
+            recoverMusic(current)
+        }
     }
 
     private fun applyMusicVolume() {
         if (released) return
         val level = volume / 100f * .4f * if (ducked) .38f else 1f
-        player?.setVolume(level, level)
+        withMusicPlayer { it.setVolume(level, level) }
     }
     private fun syncMusic() {
         if (released) return
-        if (active && focused && music && volume > 0) player?.start()
-        else if (player?.isPlaying == true) player?.pause()
+        withMusicPlayer {
+            if (active && focused && music && volume > 0) it.start()
+            else if (it.isPlaying) it.pause()
+        }
         applyMusicVolume()
     }
     private fun stopCues() {
@@ -272,6 +324,7 @@ class AudioEngine(context: Context) {
         pause(); released = true; onMusicChanged = null
         preparationTimeout?.let { handler.removeCallbacks(it) }; preparationTimeout = null
         pendingPlayer?.release(); pendingPlayer = null
+        pendingSelection?.let { discard(it) }; pendingSelection = null
         player?.release(); player = null; pool.release()
     }
     internal fun testSeekMusic(positionMs: Int) {

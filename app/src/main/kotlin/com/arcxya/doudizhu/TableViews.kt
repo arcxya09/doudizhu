@@ -38,16 +38,21 @@ class TableWordmark(context:Context):View(context){
 /** Native pill skin with a 48 dp touch target and the smaller reference-sized face. */
 class ClassicActionButton(context:Context,private val primary:Boolean):android.widget.Button(context){
     private val fill=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val textBounds=Rect()
     private val sprites=GameArtwork.get(context)
     override fun onDraw(c:Canvas){
         val d=resources.displayMetrics.density;val h=min(height.toFloat(),46*d)
-        val name=if(primary)"btn_jdz" else if(text.toString()=="提示")"xiaolu_button" else "xiaohui_button"
+        val name=if(!isEnabled)"xiaohui_button" else if(primary)"btn_jdz" else "xiaolu_button"
         val face=RectF(2*d,height/2f-h/2,width-2*d,height/2f+h/2)
         fill.color=Color.WHITE;fill.alpha=if(isPressed)210 else 255;sprites.draw(c,name,face,fill)
-        val y=height/2f-(paint.fontMetrics.ascent+paint.fontMetrics.descent)/2
-        paint.textAlign=Paint.Align.CENTER;paint.style=Paint.Style.STROKE;paint.strokeWidth=1.4f*d;paint.color=if(primary)0xff965512.toInt() else 0xff495472.toInt()
-        c.drawText(text.toString(),width/2f,y,paint);paint.style=Paint.Style.FILL;paint.color=Color.WHITE
-        c.drawText(text.toString(),width/2f,y,paint)
+        val caption=text.toString()
+        paint.getTextBounds(caption,0,caption.length,textBounds)
+        // Imported gray/green faces occupy the top 72 px; their bottom shadow is not the face.
+        val center=when(name){"xiaolu_button"->36f/94f;"xiaohui_button"->36f/90f;else->.515f}
+        val y=face.top+face.height()*center-textBounds.exactCenterY()
+        paint.textAlign=Paint.Align.CENTER;paint.style=Paint.Style.STROKE;paint.strokeWidth=1.4f*d;paint.color=if(isEnabled&&primary)0xff965512.toInt() else 0xff495472.toInt()
+        c.drawText(caption,width/2f,y,paint);paint.style=Paint.Style.FILL;paint.color=Color.WHITE
+        c.drawText(caption,width/2f,y,paint)
     }
 }
 /** Text remains available to accessibility and UI automation while a matching sprite is drawn. */
@@ -160,6 +165,8 @@ class ReferenceTable(context:Context):ViewGroup(context){
     data class Zone(val view:View,val x:Float,val y:Float,val w:Float,val h:Float)
     private val zones=mutableListOf<Zone>()
     private var safe=Rect()
+    private val buttonTouches=TableButtonTouchDelegate(this)
+    init { touchDelegate=buttonTouches }
     override fun onApplyWindowInsets(insets:android.view.WindowInsets):android.view.WindowInsets{
         val next=if(android.os.Build.VERSION.SDK_INT>=28)insets.displayCutout?.let{Rect(it.safeInsetLeft,it.safeInsetTop,it.safeInsetRight,it.safeInsetBottom)}?:Rect() else Rect()
         if(next!=safe){safe=next;requestLayout()}
@@ -175,5 +182,65 @@ class ReferenceTable(context:Context):ViewGroup(context){
     }
     override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){
         for(z in zones){val a=area(z.view);val x=a.left+(a.width()*z.x).toInt();val y=a.top+(a.height()*z.y).toInt();z.view.layout(x,y,x+z.view.measuredWidth,y+z.view.measuredHeight)}
+        val available=Rect(safe.left,safe.top,width-safe.right,height-safe.bottom)
+        val minimum=(48*resources.displayMetrics.density+.5f).toInt()
+        val targets=mutableListOf<TableButtonTouchDelegate.Target>()
+        fun collect(view:View){
+            if(view is android.widget.Button && view.visibility==View.VISIBLE){
+                val visual=Rect(0,0,view.width,view.height)
+                offsetDescendantRectToMyCoords(view,visual)
+                val w=maxOf(visual.width(),minimum).coerceAtMost(available.width())
+                val h=maxOf(visual.height(),minimum).coerceAtMost(available.height())
+                val x=(visual.centerX()-w/2).coerceIn(available.left,available.right-w)
+                val y=(visual.centerY()-h/2).coerceIn(available.top,available.bottom-h)
+                targets.add(TableButtonTouchDelegate.Target(view,Rect(x,y,x+w,y+h),visual.centerX(),visual.centerY()))
+            }else if(view is ViewGroup)for(i in 0 until view.childCount)collect(view.getChildAt(i))
+        }
+        if(available.width()>0 && available.height()>0)for(i in 0 until childCount)collect(getChildAt(i))
+        buttonTouches.update(targets)
+    }
+}
+
+/** Fallback hits enlarge compact controls without moving artwork or stealing normal card taps. */
+private class TableButtonTouchDelegate(private val host:ViewGroup):android.view.TouchDelegate(Rect(),host){
+    data class Target(val button:android.widget.Button,val bounds:Rect,val centerX:Int,val centerY:Int)
+    private var targets:List<Target> = emptyList()
+    private var target:Target?=null
+    private var active:android.view.TouchDelegate?=null
+    private var captured=false
+    fun update(value:List<Target>){targets=value}
+    private fun usable(value:Target):Boolean=value.button.isShown && value.button.isEnabled && value.button.isAttachedToWindow
+    override fun onTouchEvent(event:android.view.MotionEvent):Boolean{
+        val action=event.actionMasked
+        if(action==android.view.MotionEvent.ACTION_DOWN){
+            val x=event.x;val y=event.y
+            target=targets.filter{usable(it)&&it.bounds.contains(x.toInt(),y.toInt())}.minByOrNull{
+                val dx=x-it.centerX;val dy=y-it.centerY;dx*dx+dy*dy
+            }
+            active=target?.let{android.view.TouchDelegate(it.bounds,it.button)}
+            captured=active!=null
+        }
+        if(!captured)return false
+        val selected=target
+        // A gesture stays with its original button; removing it or adding a second finger cancels it.
+        val copy=android.view.MotionEvent.obtain(event)
+        try{
+            if(selected==null || !usable(selected) || event.pointerCount>1){
+                copy.action=android.view.MotionEvent.ACTION_CANCEL
+                active?.onTouchEvent(copy);active=null
+            }else active?.onTouchEvent(copy)
+        }finally{copy.recycle()}
+        if(action==android.view.MotionEvent.ACTION_UP || action==android.view.MotionEvent.ACTION_CANCEL){
+            target=null;active=null;captured=false
+        }
+        return true
+    }
+    @android.annotation.TargetApi(29)
+    override fun getTouchDelegateInfo():android.view.accessibility.AccessibilityNodeInfo.TouchDelegateInfo{
+        val map=android.util.ArrayMap<Region,View>()
+        for(t in targets)if(usable(t))map[Region(t.bounds)]=t.button
+        // The platform requires at least one map entry, even before the first layout.
+        if(map.isEmpty())map[Region(Rect())]=host
+        return android.view.accessibility.AccessibilityNodeInfo.TouchDelegateInfo(map)
     }
 }

@@ -81,6 +81,7 @@ class NativeUiTest {
                     assertNotNull("Button caption laid out: ${button.text}", caption)
                     assertTrue("Full button caption height visible: ${button.text}",
                         caption.getLineBottom(caption.lineCount - 1) <= button.height-button.compoundPaddingTop-button.compoundPaddingBottom+1)
+                    if(button is ClassicActionButton) checkButtonArtwork(button)
                 }
                 val image = Bitmap.createBitmap(decor.width, decor.height, Bitmap.Config.ARGB_8888)
                 decor.draw(Canvas(image))
@@ -115,6 +116,29 @@ class NativeUiTest {
             SystemClock.sleep(300)
         }
         fail("Screenshot must match the native game window, difference=$lastDifference")
+    }
+
+    /** Inspect rendered pixels: active faces must be colored and letters centered on the face. */
+    private fun checkButtonArtwork(button: ClassicActionButton) {
+        val bitmap=Bitmap.createBitmap(button.width,button.height,Bitmap.Config.ARGB_8888)
+        button.draw(Canvas(bitmap))
+        var faceTop=bitmap.height;var faceBottom=-1;var textTop=bitmap.height;var textBottom=-1
+        for(y in 0 until bitmap.height)for(x in 0 until bitmap.width){
+            val pixel=bitmap.getPixel(x,y)
+            if(Color.alpha(pixel)<192)continue
+            val r=Color.red(pixel);val g=Color.green(pixel);val b=Color.blue(pixel)
+            if((g>=150&&g>r*1.25&&g>b*1.2)||(r>=200&&g>=120&&b<=170&&r>g*1.04)){
+                faceTop=minOf(faceTop,y);faceBottom=maxOf(faceBottom,y)
+            }
+            if(r>=248&&g>=248&&b>=248){textTop=minOf(textTop,y);textBottom=maxOf(textBottom,y)}
+        }
+        bitmap.recycle()
+        if(button.isEnabled){
+            assertTrue("Enabled action has a colored face: ${button.text}",faceBottom>=faceTop)
+            assertTrue("Visible white caption: ${button.text}",textBottom>=textTop)
+            assertTrue("Caption centered on button face: ${button.text}",
+                abs((textTop+textBottom-faceTop-faceBottom)/2f)<=3*button.resources.displayMetrics.density)
+        }else assertEquals("Disabled action has a gray face: ${button.text}",-1,faceBottom)
     }
 
     /** Validate drawn seat placement, not just the size of the empty play containers. */
@@ -269,9 +293,19 @@ class NativeUiTest {
                 assertFalse("Import does not start disabled music", engine.testState().playing)
                 assertEquals("Muted import still adopts new source", "静音导入音乐.wav", engine.testState().musicName)
             }
+            // Reproduce the async-preparation boundary before the candidate is committed.
+            val store=LocalMusicStore(context)
+            val committedFile=store.read()!!.file
+            val abandoned=store.stage(importedBytes.inputStream(),"取消中的音乐.wav")
+            onMain(inst){
+                AudioEngine::class.java.getDeclaredField("pendingSelection").apply{isAccessible=true}.set(engine,abandoned)
+                AudioEngine::class.java.getDeclaredField("pendingPlayer").apply{isAccessible=true}.set(engine,MediaPlayer())
+            }
             val replacedEngine = engine
             onMain(inst) { activity.finish() }
             await("Old engine releases before restart") { onMain(inst) { replacedEngine.testState().released } }
+            await("Destroying during preparation removes the uncommitted copied music"){!abandoned.file.exists()}
+            assertTrue("Cancelled import preserves the committed local music",committedFile.isFile)
             activity = inst.startActivitySync(Intent(context, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
             engine = onMain(inst) { activity.testStart(); activity.testAudio() }
@@ -283,6 +317,15 @@ class NativeUiTest {
             } }
             onMain(inst) { engine.configure(true, true, 45) }
             await("Persisted local audio plays after enabling music") { onMain(inst) { engine.testState().playing } }
+            onMain(inst){
+                val playing=AudioEngine::class.java.getDeclaredField("player").apply{isAccessible=true}.get(engine) as MediaPlayer
+                playing.reset()
+                engine.resume()
+            }
+            await("An invalid live player recovers to default music without crashing"){onMain(inst){
+                !engine.isMusicBusy&&!engine.hasCustomMusic&&engine.testState().playing
+            }}
+            assertTrue("A new import works after playback error recovery",importTrack(importedBytes,"恢复后音乐.wav"))
             restoreDefaultMusic()
             await("Restore default replaces the actual active player") { onMain(inst) {
                 val state = engine.testState()
@@ -290,9 +333,19 @@ class NativeUiTest {
                     state.loadedCues == AudioEngine.CUE_DURATIONS.keys &&
                     abs(state.durationMs-decodedDurations.getValue("table_loop")) <= 100
             } }
-            report.append("Local music: decoded replacement, live playback, corrupt-file rollback, muted import, restart persistence and default restoration: passed\n")
+            report.append("Local music: decoded replacement, live playback, corrupt-file rollback, cancelled-preparation cleanup, restart persistence, playback error recovery and default restoration: passed\n")
 
-            tap(inst, device, activity, "设置")
+            val expandedPoint=onMain(inst){
+                val button=all(activity.window.decorView).filterIsInstance<Button>().single{it.text=="设置"}
+                val d=context.resources.displayMetrics.density
+                val margin=(48*d-button.height)/2
+                if(margin<2) null else {
+                    val rect=Rect().also{button.getGlobalVisibleRect(it)}
+                    rect.centerX() to rect.bottom+maxOf(1,minOf((4*d).toInt(),(margin/2).toInt()))
+                }
+            }
+            if(expandedPoint==null)tap(inst,device,activity,"设置")
+            else assertTrue("Small settings button responds outside its original bounds",device.click(expandedPoint.first,expandedPoint.second))
             assertTrue("Sound settings dialog opens", device.wait(Until.hasObject(By.text("声音与牌桌设置")), 5000))
             val settingsScroll = UiScrollable(UiSelector().scrollable(true))
             assertTrue("Local music action can be reached by scrolling", settingsScroll.scrollIntoView(UiSelector().text("选择本地音乐")))
@@ -492,11 +545,28 @@ class NativeUiTest {
         inst.runOnMainSync {activity.testSeatPlays()}
         captureGame(inst,device,activity,File(dir,"native-three-seats.png"))
         checkSeatPlayAlignment(inst, activity)
+        val pass=onMain(inst){all(activity.window.decorView).filterIsInstance<Button>().single{it.text=="不出"}}
+        assertTrue("Pass enabled while responding to another seat",onMain(inst){pass.isEnabled})
+        val beforePass=onMain(inst){activity.game.hands[0].toList()}
+        val passCard=point(0);assertTrue(device.click(passCard.first,passCard.second))
+        await("A selected card does not block passing"){onMain(inst){activity.hand.getChildAt(0).isSelected}}
+        captureGame(inst,device,activity,File(dir,"native-pass.png"))
+        tap(inst,device,activity,"不出")
+        await("Pass advances turn without playing selected cards"){onMain(inst){activity.game.turn==1&&activity.game.hands[0]==beforePass}}
+        onMain(inst){
+            activity.game.status[0]="不出";activity.game.status[2]="不出"
+            activity.testPlayedCards(listOf(4))
+            assertEquals("A new lead clears the previous player pass","等待出牌",activity.game.status[0])
+            assertEquals("A new lead clears the previous opponent pass","等待出牌",activity.game.status[2])
+        }
         inst.runOnMainSync {activity.testBidding()}
         captureGame(inst,device,activity,File(dir,"native-bidding.png"))
         assertEquals("Reference bidding fixture has seventeen cards", 17, onMain(inst) { activity.hand.childCount })
+        onMain(inst){activity.testAudio().configure(true,true,45)}
+        await("Call-landlord voice ready"){onMain(inst){"bid" in activity.testAudio().testState().loadedCues}}
         tap(inst,device,activity,"叫地主")
         await("Call landlord from reference-layout button"){onMain(inst){activity.game.landlord==0 && activity.game.hands[0].size==20}}
+        assertEquals("Call-landlord button says call landlord instead of three points","bid",onMain(inst){activity.testAudio().testState().lastCue})
         inst.runOnMainSync {activity.finish()};inst.waitForIdleSync()
         activity=inst.startActivitySync(Intent(context,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
         await("Restored table ready for autoplay"){onMain(inst){activity.hasWindowFocus() && activity.hand.width>0}}

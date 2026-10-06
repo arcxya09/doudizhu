@@ -28,6 +28,8 @@ class AudioCuesTest {
     }
 
     @Test fun decliningTheScoreBidDoesNotAnnounceAnUnimplementedRobbingPhase() {
+        assertEquals("bid", AudioCues.forLandlordCall(true))
+        assertEquals("bid_pass", AudioCues.forLandlordCall(false))
         // Imported NoOrder says “不叫”; score clips map to the actual auction points.
         assertEquals("bid_pass", AudioCues.forBid(0))
         for (points in 1..3) assertEquals("bid_$points", AudioCues.forBid(points))
