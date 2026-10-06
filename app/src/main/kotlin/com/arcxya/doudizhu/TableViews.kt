@@ -54,8 +54,13 @@ class ClassicActionButton(context:Context,private val primary:Boolean):android.w
 class GameCueLabel(context:Context):android.widget.TextView(context){
     private val sprites=GameArtwork.get(context)
     private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    init {
+        includeFontPadding=false;maxLines=1
+        setAutoSizeTextTypeUniformWithConfiguration(10,25,1,android.util.TypedValue.COMPLEX_UNIT_SP)
+    }
     override fun onDraw(c:Canvas){
-        val name=when(text.toString()){"不叫"->"bujiao_playing";"不出"->"buchu_playing";"要不起"->"yaobuqi";"1分"->"yifen_zhuomian_jinbiaosai";"2分"->"erfen_zhuomian_jinbiaosai";"3分"->"sanfen_zhuomian_jinbiaosai";else->null}
+        val caption=text.toString().replace(" ","").removePrefix("叫")
+        val name=when(caption){"不叫"->"bujiao_playing";"不出"->"buchu_playing";"要不起"->"yaobuqi";"1分"->"yifen_zhuomian_jinbiaosai";"2分"->"erfen_zhuomian_jinbiaosai";"3分"->"sanfen_zhuomian_jinbiaosai";else->null}
         if(name==null){super.onDraw(c);return}
         val src=sprites.rect(name);val scale=min(width.toFloat()/src.width(),height.toFloat()/src.height());val w=src.width()*scale;val h=src.height()*scale
         sprites.draw(c,name,RectF((width-w)/2,(height-h)/2,(width+w)/2,(height+h)/2),p)

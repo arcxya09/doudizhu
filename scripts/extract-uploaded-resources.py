@@ -42,7 +42,7 @@ for n in z.namelist():
    if o.type.name=='AudioClip':
     r['duration']=d.m_Length
     for fn,data in d.samples.items():
-     dest=folder/(name+'_'+re.sub(r'[^\w.\-()]','_',fn));dest.write_bytes(data);r['file']=str(dest.relative_to(out))
+     dest=folder/(name+'_'+str(o.path_id)+'_'+re.sub(r'[^\w.\-()]','_',fn));dest.write_bytes(data);r['file']=str(dest.relative_to(out))
    else:
     img=d.image.copy();img.load();dest=folder/(name+'_'+str(o.path_id)+'.png');img.save(dest);r.update(file=str(dest.relative_to(out)),width=img.width,height=img.height)
    records.append(r)
