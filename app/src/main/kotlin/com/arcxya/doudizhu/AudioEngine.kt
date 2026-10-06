@@ -153,7 +153,7 @@ class AudioEngine(context: Context) {
         try {
             candidate.setAudioAttributes(attrs)
             if (selection != null) candidate.setDataSource(selection.file.absolutePath)
-            else context.assets.openFd("audio/table_loop.wav").use {
+            else context.assets.openFd("audio/table_loop.ogg").use {
                 candidate.setDataSource(it.fileDescriptor, it.startOffset, it.length)
             }
             candidate.isLooping = true
@@ -288,8 +288,67 @@ class AudioEngine(context: Context) {
     companion object {
         private val FILE_WORKER = Executors.newSingleThreadExecutor { work -> Thread(work, "LocalMusicFiles") }
         internal val CUE_DURATIONS = linkedMapOf(
-            "select" to 190, "play" to 190, "deal" to 3815, "bid" to 1536, "bid_pass" to 190,
-            "pass" to 730, "cannot_beat" to 1078, "pair_k" to 940, "pair_a" to 980, "pair_2" to 865,
-            "airplane" to 1519, "bomb" to 2680, "rocket" to 2721, "win" to 2510)
+            "select" to 183,
+            "play" to 98,
+            "deal" to 3944,
+            "bid" to 679,
+            "bid_pass" to 522,
+            "pass" to 784,
+            "bomb" to 2879,
+            "rocket" to 1700,
+            "airplane" to 1876,
+            "win" to 4881,
+            "lose" to 5725,
+            "straight" to 784,
+            "pairs" to 548,
+            "triple_single" to 940,
+            "triple_pair" to 1175,
+            "four_single" to 705,
+            "four_pair" to 1045,
+            "single_3" to 496,
+            "pair_3" to 575,
+            "triple_3" to 862,
+            "single_4" to 470,
+            "pair_4" to 705,
+            "triple_4" to 810,
+            "single_5" to 653,
+            "pair_5" to 653,
+            "triple_5" to 1071,
+            "single_6" to 418,
+            "pair_6" to 601,
+            "triple_6" to 810,
+            "single_7" to 548,
+            "pair_7" to 601,
+            "triple_7" to 940,
+            "single_8" to 444,
+            "pair_8" to 679,
+            "triple_8" to 810,
+            "single_9" to 575,
+            "pair_9" to 575,
+            "triple_9" to 966,
+            "single_10" to 522,
+            "pair_10" to 757,
+            "triple_10" to 888,
+            "single_11" to 522,
+            "pair_11" to 522,
+            "triple_11" to 836,
+            "single_12" to 575,
+            "pair_12" to 522,
+            "triple_12" to 914,
+            "single_13" to 522,
+            "pair_k" to 522,
+            "triple_13" to 862,
+            "single_14" to 444,
+            "pair_a" to 601,
+            "triple_14" to 862,
+            "single_15" to 522,
+            "pair_2" to 522,
+            "triple_15" to 914,
+            "single_16" to 784,
+            "single_17" to 731,
+            "bid_1" to 425,
+            "bid_2" to 525,
+            "bid_3" to 576,
+            "cannot_beat" to 1078)
     }
 }

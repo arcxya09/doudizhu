@@ -10,13 +10,16 @@ import kotlin.math.min
 /** All scene art is packaged locally. Positions are normalized against the supplied landscape reference. */
 class TableBackdrop(context:Context):View(context){
     private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private val bitmap=context.assets.open("blue_table.webp").use{BitmapFactory.decodeStream(it)}
-    init{
-        val color=ColorMatrix().apply{setSaturation(.74f)}
-        color.postConcat(ColorMatrix(floatArrayOf(1.08f,0f,0f,0f,0f, 0f,.98f,0f,0f,0f, 0f,0f,.94f,0f,0f, 0f,0f,0f,1f,0f)))
-        paint.colorFilter=ColorMatrixColorFilter(color)
+    private val bitmap=context.assets.open("game_background.webp").use{BitmapFactory.decodeStream(it)}
+    override fun onDraw(canvas:Canvas){
+        val scale=maxOf(width.toFloat()/bitmap.width,height.toFloat()/bitmap.height)
+        val w=bitmap.width*scale;val h=bitmap.height*scale
+        canvas.drawBitmap(bitmap,null,RectF((width-w)/2,(height-h)/2,(width+w)/2,(height+h)/2),paint)
+        // Darken the scene enough to keep large white labels legible, including the cutout edge.
+        paint.color=0x38304062;canvas.drawRect(0f,0f,width.toFloat(),height.toFloat(),paint)
+        paint.shader=LinearGradient(0f,0f,0f,height.toFloat(),intArrayOf(0x78304368,0x00304368,0x00304368,0x90304368.toInt()),floatArrayOf(0f,.22f,.72f,1f),Shader.TileMode.CLAMP)
+        canvas.drawRect(0f,0f,width.toFloat(),height.toFloat(),paint);paint.shader=null;paint.color=Color.WHITE
     }
-    override fun onDraw(canvas:Canvas){canvas.drawBitmap(bitmap,null,RectF(0f,0f,width.toFloat(),height.toFloat()),paint)}
 }
 /** Compact, low-contrast table mark; drawn independently of accessibility font scale. */
 class TableWordmark(context:Context):View(context){
@@ -34,20 +37,28 @@ class TableWordmark(context:Context):View(context){
 }
 /** Native pill skin with a 48 dp touch target and the smaller reference-sized face. */
 class ClassicActionButton(context:Context,private val primary:Boolean):android.widget.Button(context){
-    private val fill=Paint(Paint.ANTI_ALIAS_FLAG)
+    private val fill=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val sprites=GameArtwork.get(context)
     override fun onDraw(c:Canvas){
-        val d=resources.displayMetrics.density
-        val face=RectF(6*d,height/2f-14*d,width-6*d,height/2f+14*d)
-        fill.shader=null;fill.color=if(primary)0x80592f08.toInt() else 0x80393081.toInt()
-        c.drawRoundRect(RectF(face.left,face.top+2*d,face.right,face.bottom+2*d),15*d,15*d,fill)
-        fill.shader=LinearGradient(0f,face.top,0f,face.bottom,
-            if(primary)intArrayOf(0xffffe78c.toInt(),0xffffbc3e.toInt(),0xfff0991e.toInt()) else intArrayOf(0xffb7e7ff.toInt(),0xff98acff.toInt(),0xff8072e9.toInt()),floatArrayOf(0f,.46f,1f),Shader.TileMode.CLAMP)
-        fill.alpha=255;c.drawRoundRect(face,15*d,15*d,fill);fill.shader=null
-        fill.style=Paint.Style.STROKE;fill.strokeWidth=d;fill.color=if(primary)0xffffd66d.toInt() else 0xffb5c8ff.toInt();c.drawRoundRect(face,15*d,15*d,fill);fill.style=Paint.Style.FILL
+        val d=resources.displayMetrics.density;val h=min(height.toFloat(),46*d)
+        val name=if(primary)"btn_jdz" else if(text.toString()=="提示")"xiaolu_button" else "xiaohui_button"
+        val face=RectF(2*d,height/2f-h/2,width-2*d,height/2f+h/2)
+        fill.color=Color.WHITE;fill.alpha=if(isPressed)210 else 255;sprites.draw(c,name,face,fill)
         val y=height/2f-(paint.fontMetrics.ascent+paint.fontMetrics.descent)/2
-        paint.textAlign=Paint.Align.CENTER;paint.style=Paint.Style.STROKE;paint.strokeWidth=1.4f*d;paint.color=if(primary)0xffa26426.toInt() else 0xff5268ad.toInt()
+        paint.textAlign=Paint.Align.CENTER;paint.style=Paint.Style.STROKE;paint.strokeWidth=1.4f*d;paint.color=if(primary)0xff965512.toInt() else 0xff495472.toInt()
         c.drawText(text.toString(),width/2f,y,paint);paint.style=Paint.Style.FILL;paint.color=Color.WHITE
         c.drawText(text.toString(),width/2f,y,paint)
+    }
+}
+/** Text remains available to accessibility and UI automation while a matching sprite is drawn. */
+class GameCueLabel(context:Context):android.widget.TextView(context){
+    private val sprites=GameArtwork.get(context)
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    override fun onDraw(c:Canvas){
+        val name=when(text.toString()){"不叫"->"bujiao_playing";"不出"->"buchu_playing";"要不起"->"yaobuqi";"1分"->"yifen_zhuomian_jinbiaosai";"2分"->"erfen_zhuomian_jinbiaosai";"3分"->"sanfen_zhuomian_jinbiaosai";else->null}
+        if(name==null){super.onDraw(c);return}
+        val src=sprites.rect(name);val scale=min(width.toFloat()/src.width(),height.toFloat()/src.height());val w=src.width()*scale;val h=src.height()*scale
+        sprites.draw(c,name,RectF((width-w)/2,(height-h)/2,(width+w)/2,(height+h)/2),p)
     }
 }
 class RoleBadge:Drawable(){

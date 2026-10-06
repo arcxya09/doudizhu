@@ -1,3 +1,7 @@
+# v3.5.0
+
+默认BGM已改为上传包中的`MusicEx_Normal`（OGG，约30秒）；62种短音的现行时长见`assets/audio/cue_durations.json`，新增点数报牌与牌型语音。详见[上传资源记录](UPLOADED-RESOURCES.md)。下面v3.4/v3.3的默认音频说明为历史记录，现行源文件以`uploaded_resources.json`为准；本地音乐导入能力保留。
+
 # 离线声音与本地背景音乐
 
 ## v3.4.0 独立短音

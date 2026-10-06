@@ -202,10 +202,11 @@ class NativeUiTest {
             val decodedDurations = mutableMapOf<String, Int>()
             val files = context.assets.list("audio")!!.toSet()
             for (name in AudioEngine.CUE_DURATIONS.keys + "table_loop") {
-                assertTrue("Bundled audio exists: $name", "$name.wav" in files)
+                val assetFile=if(name=="table_loop")"table_loop.ogg" else "$name.wav"
+                assertTrue("Bundled audio exists: $name", assetFile in files)
                 val decoder = MediaPlayer()
                 try {
-                    context.assets.openFd("audio/$name.wav").use {
+                    context.assets.openFd("audio/$assetFile").use {
                         decoder.setDataSource(it.fileDescriptor, it.startOffset, it.length)
                     }
                     decoder.prepare()
@@ -213,7 +214,7 @@ class NativeUiTest {
                     val duration = AudioEngine.CUE_DURATIONS[name]
                     if (duration != null) assertTrue("Bundled WAV decodes to expected duration: $name", abs(decoder.duration-duration) <= 100)
                     else assertTrue("BGM decodes to a usable loop", decoder.duration >= 3000)
-                    report.append("$name.wav: decoded ${decoder.duration} ms\n")
+                    report.append("$assetFile: decoded ${decoder.duration} ms\n")
                 } finally { decoder.release() }
             }
             onMain(inst) { engine.configure(true, true, 45) }

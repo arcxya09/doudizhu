@@ -11,15 +11,28 @@ import kotlin.math.min
 import kotlin.math.max
 import kotlin.math.abs
 
-class CardArt(context: Context) {
-    val atlas: Bitmap = context.assets.open("cards.webp").use { BitmapFactory.decodeStream(it) }
-    val ranks: Bitmap = context.assets.open("rank_glyphs.png").use { BitmapFactory.decodeStream(it) }
-    val jokerIndex: Bitmap = context.assets.open("joker_index.png").use { BitmapFactory.decodeStream(it) }
-    private val rankSizes = arrayOf(34 to 56,27 to 39,22 to 34,23 to 37,27 to 41,38 to 56,27 to 41,34 to 40,35 to 54,29 to 45,30 to 40,44 to 57,26 to 40)
-    fun source(card: Int) = Rect(card%9*160,card/9*240,card%9*160+160,card/9*240+240)
-    fun rankSource(card: Int): Rect {val rank=card/4;val size=rankSizes[rank];return Rect(rank*64+2,2,rank*64+2+size.first,2+size.second)}
+/** A single decoded atlas is shared by cards, buttons and status labels. */
+class GameArtwork private constructor(context: Context) {
+    val bitmap: Bitmap = context.assets.open("game_atlas.png").use { BitmapFactory.decodeStream(it) }
+    private val data = org.json.JSONObject(context.assets.open("game_atlas.json").bufferedReader().use { it.readText() })
+    private val rects = data.keys().asSequence().associateWith { key ->
+        val r=data.getJSONArray(key);Rect(r.getInt(0),r.getInt(1),r.getInt(0)+r.getInt(2),r.getInt(1)+r.getInt(3))
+    }
+    fun rect(name:String):Rect = rects.getValue(name)
+    fun draw(canvas:Canvas,name:String,box:RectF,paint:Paint) {canvas.drawBitmap(bitmap,rect(name),box,paint)}
+    companion object {
+        @Volatile private var instance:GameArtwork?=null
+        fun get(context:Context):GameArtwork=instance?:synchronized(this){instance?:GameArtwork(context.applicationContext).also{instance=it}}
+    }
 }
-/** Wider reference card proportions; corner masks preserve the supplied reference's lettering. */
+class CardArt(context: Context) {
+    val sprites=GameArtwork.get(context)
+    fun rankName(card:Int):String {
+        val rank=card/4+3;val number=if(rank==14)1 else if(rank==15)2 else rank
+        return "LargeCard_commom_shuzi_${if(card%4==1||card%4==3)"hong" else "hei"}_$number"
+    }
+}
+/** Original sprite indexes stay exposed as cards overlap; selection retains a gold edge. */
 class CardFace(context: Context, private val art: CardArt, val card: Int, private val largeIndex: Boolean = false): View(context) {
     companion object { const val WIDTH_HEIGHT_RATIO = .76f }
     private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
@@ -29,64 +42,44 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
     var landlordRibbon=false
     var showBody=true
     init {contentDescription=if(card==54) "未公开底牌" else Rules.cardName(card);isFocusable=largeIndex}
+    private fun fitted(canvas:Canvas,name:String,box:RectF) {
+        val src=art.sprites.rect(name);val scale=min(box.width()/src.width(),box.height()/src.height())
+        val w=src.width()*scale;val h=src.height()*scale
+        art.sprites.draw(canvas,name,RectF(box.centerX()-w/2,box.top,box.centerX()+w/2,box.top+h),paint)
+    }
     override fun onDraw(canvas:Canvas) {
         val edge=dp(.7f);val lift=if(largeIndex)dp(9f) else 0f
         val h=min(height-edge*2-lift,(width-dp(2f))/WIDTH_HEIGHT_RATIO)
         val w=h*WIDTH_HEIGHT_RATIO;val top=height-dp(1f)-h-if(isSelected)lift else 0f
         val box=RectF((width-w)/2,top,(width+w)/2,top+h)
-        paint.style=Paint.Style.FILL;paint.color=0x3021283c
+        paint.style=Paint.Style.FILL;paint.color=0x4021283c
         canvas.drawRoundRect(RectF(box.left-dp(.5f),box.top+dp(1f),box.right+dp(.5f),box.bottom+dp(1.3f)),dp(3f),dp(3f),paint)
-        paint.color=if(isSelected)Color.rgb(255,199,56) else Color.rgb(177,180,185)
-        canvas.drawRoundRect(RectF(box.left-edge,box.top-edge,box.right+edge,box.bottom+edge),dp(3f),dp(3f),paint)
-        paint.shader=LinearGradient(box.left,box.top,box.right,box.bottom,0xfffafafa.toInt(),0xffd6d6d6.toInt(),Shader.TileMode.CLAMP);canvas.drawRoundRect(box,dp(2.5f),dp(2.5f),paint);paint.shader=null
-        if(card==54) {canvas.drawBitmap(art.atlas,art.source(card),box,paint);return}
+        if(isSelected){paint.color=0xffffbd35.toInt();canvas.drawRoundRect(RectF(box.left-edge,box.top-edge,box.right+edge,box.bottom+edge),dp(3f),dp(3f),paint)}
+        paint.color=Color.WHITE
+        art.sprites.draw(canvas,if(card==54)"large_card_anti" else "large_card_bgx",box,paint)
+        if(card==54)return
         val margin=min(if(indexWidth>0)indexWidth-dp(2f) else w*.42f,w*.48f).coerceAtLeast(dp(10f))
-        // Crop only the central illustration, so the original small corner indexes are not duplicated.
-        val src=art.source(card);src.inset(30,42)
-        val artBox=RectF(box.left+margin+dp(3f),box.top+h*.30f,box.right-dp(4f),box.bottom-dp(5f))
-        if(card>=52&&showBody&&!compactIndex&&artBox.width()>0)canvas.drawBitmap(art.atlas,src,artBox,paint)
-        val red=card==53 || (card<52 && card%4 in listOf(1,3))
-        paint.color=if(red)Color.rgb(187,30,24) else Color.rgb(21,25,23)
-        val ink=paint.color
-        val x=box.left+margin/2+dp(.5f)
-        val available=margin-dp(4f)
-        paint.color=Color.WHITE;paint.colorFilter=PorterDuffColorFilter(ink,PorterDuff.Mode.SRC_IN)
+        val x=box.left+margin/2+dp(.5f);val available=margin-dp(4f)
         if(card>=52){
-            val ih=h*.84f;val iw=min(available,ih*art.jokerIndex.width/art.jokerIndex.height)
-            canvas.drawBitmap(art.jokerIndex,null,RectF(x-iw/2,box.top+h*.055f,x+iw/2,box.top+h*.055f+ih),paint)
+            val joker=if(card==52)14 else 15
+            fitted(canvas,"LargeCard_king_$joker",RectF(x-available/2,box.top+h*.055f,x+available/2,box.top+h*.895f))
+            if(showBody&&!compactIndex)fitted(canvas,"LargeCard_king_huase_$joker",RectF(box.left+margin+dp(3f),box.top+h*.32f,box.right-dp(5f),box.bottom-dp(7f)))
         }else{
-            val glyph=art.rankSource(card)
-            val rh=h*(if(compactIndex).43f else .25f)*(if(card/4==9)1.08f else 1f)
-            val rw=min(available,rh*glyph.width()/glyph.height())
-            val ry=box.top+h*.055f
-            canvas.drawBitmap(art.ranks,glyph,RectF(x-rw/2,ry,x+rw/2,ry+rh),paint)
-            paint.colorFilter=null;paint.color=ink
-            val size=min(h*(if(compactIndex).29f else .16f),margin*.67f)
-            drawSuit(canvas,card%4,x-size/2,ry+rh+h*.025f,size)
-        }
-        paint.colorFilter=null;paint.color=ink
-        if(card<52&&showBody&&!compactIndex&&h>dp(55f)){
-            val pip=min(w*.47f,h*.38f)
-            drawSuit(canvas,card%4,box.right-pip-dp(5f),box.bottom-pip-dp(8f),pip)
+            val name=art.rankName(card);val glyph=art.sprites.rect(name)
+            val rh=min(h*(if(compactIndex).43f else .27f),available*glyph.height()/glyph.width())
+            val rw=rh*glyph.width()/glyph.height();val ry=box.top+h*.045f
+            art.sprites.draw(canvas,name,RectF(x-rw/2,ry,x+rw/2,ry+rh),paint)
+            val suit="LargeCard_huase_${card%4+1}";val size=min(h*(if(compactIndex).29f else .17f),margin*.70f)
+            fitted(canvas,suit,RectF(x-size/2,ry+rh+h*.02f,x+size/2,ry+rh+h*.02f+size))
+            if(showBody&&!compactIndex&&h>dp(55f)){
+                val pip=min(w*.47f,h*.38f)
+                fitted(canvas,suit,RectF(box.right-pip-dp(6f),box.bottom-pip-dp(8f),box.right-dp(6f),box.bottom-dp(8f)))
+            }
         }
         if(landlordRibbon){
             val sz=w*.46f;paint.color=0xffffa92b.toInt();val triangle=Path().apply{moveTo(box.right-sz,box.top);lineTo(box.right,box.top);lineTo(box.right,box.top+sz);close()};canvas.drawPath(triangle,paint)
             canvas.save();canvas.rotate(45f,box.right-sz*.32f,box.top+sz*.32f);paint.color=Color.WHITE;paint.typeface=Typeface.DEFAULT_BOLD;paint.textSize=sz*.25f;paint.textAlign=Paint.Align.CENTER;canvas.drawText("地主",box.right-sz*.32f,box.top+sz*.4f,paint);canvas.restore()
         }
-        if(isSelected){paint.color=Color.rgb(240,183,58);canvas.drawRect(box.left,box.bottom-dp(1f),box.right,box.bottom,paint)}
-    }
-    private fun drawSuit(canvas:Canvas,suit:Int,x:Float,y:Float,size:Float){
-        canvas.save();canvas.translate(x,y);canvas.scale(size,size)
-        val shape=Path()
-        when(suit){
-            1->{shape.moveTo(.5f,.95f);shape.cubicTo(-.32f,.37f,.08f,-.22f,.5f,.19f);shape.cubicTo(.92f,-.22f,1.32f,.37f,.5f,.95f);shape.close();canvas.drawPath(shape,paint)}
-            3->{shape.moveTo(.5f,0f);shape.lineTo(.94f,.5f);shape.lineTo(.5f,1f);shape.lineTo(.06f,.5f);shape.close();canvas.drawPath(shape,paint)}
-            else->{
-                if(suit==0){shape.moveTo(.5f,0f);shape.cubicTo(.36f,.24f,-.03f,.39f,.05f,.66f);shape.cubicTo(.11f,.88f,.4f,.86f,.5f,.65f);shape.cubicTo(.6f,.86f,.89f,.88f,.95f,.66f);shape.cubicTo(1.03f,.39f,.64f,.24f,.5f,0f);shape.close();canvas.drawPath(shape,paint)}
-                else{canvas.drawCircle(.5f,.26f,.25f,paint);canvas.drawCircle(.25f,.59f,.25f,paint);canvas.drawCircle(.75f,.59f,.25f,paint)}
-                shape.reset();shape.moveTo(.5f,.45f);shape.lineTo(.31f,1f);shape.lineTo(.69f,1f);shape.close();canvas.drawPath(shape,paint)
-            }
-        };canvas.restore()
     }
     override fun setSelected(selected:Boolean){super.setSelected(selected);invalidate()}
     override fun onInitializeAccessibilityNodeInfo(info:AccessibilityNodeInfo){

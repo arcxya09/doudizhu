@@ -1,0 +1,278 @@
+{
+  "large_card_bgx": [
+    2,
+    2,
+    171,
+    225
+  ],
+  "large_card_anti": [
+    177,
+    2,
+    162,
+    216
+  ],
+  "LargeCard_king_14": [
+    343,
+    2,
+    50,
+    275
+  ],
+  "LargeCard_king_15": [
+    397,
+    2,
+    49,
+    275
+  ],
+  "LargeCard_king_huase_14": [
+    450,
+    2,
+    104,
+    159
+  ],
+  "LargeCard_king_huase_15": [
+    558,
+    2,
+    116,
+    160
+  ],
+  "LargeCard_commom_shuzi_hei_1": [
+    678,
+    2,
+    69,
+    85
+  ],
+  "LargeCard_commom_shuzi_hei_2": [
+    751,
+    2,
+    53,
+    83
+  ],
+  "LargeCard_commom_shuzi_hei_3": [
+    808,
+    2,
+    53,
+    82
+  ],
+  "LargeCard_commom_shuzi_hei_4": [
+    865,
+    2,
+    57,
+    82
+  ],
+  "LargeCard_commom_shuzi_hei_5": [
+    926,
+    2,
+    56,
+    85
+  ],
+  "LargeCard_commom_shuzi_hei_6": [
+    2,
+    281,
+    56,
+    88
+  ],
+  "LargeCard_commom_shuzi_hei_7": [
+    62,
+    281,
+    57,
+    85
+  ],
+  "LargeCard_commom_shuzi_hei_8": [
+    123,
+    281,
+    58,
+    88
+  ],
+  "LargeCard_commom_shuzi_hei_9": [
+    185,
+    281,
+    56,
+    87
+  ],
+  "LargeCard_commom_shuzi_hei_10": [
+    245,
+    281,
+    72,
+    84
+  ],
+  "LargeCard_commom_shuzi_hei_11": [
+    321,
+    281,
+    56,
+    86
+  ],
+  "LargeCard_commom_shuzi_hei_12": [
+    381,
+    281,
+    61,
+    94
+  ],
+  "LargeCard_commom_shuzi_hei_13": [
+    446,
+    281,
+    62,
+    82
+  ],
+  "LargeCard_commom_shuzi_hong_1": [
+    512,
+    281,
+    69,
+    84
+  ],
+  "LargeCard_commom_shuzi_hong_2": [
+    585,
+    281,
+    54,
+    82
+  ],
+  "LargeCard_commom_shuzi_hong_3": [
+    643,
+    281,
+    54,
+    82
+  ],
+  "LargeCard_commom_shuzi_hong_4": [
+    701,
+    281,
+    57,
+    81
+  ],
+  "LargeCard_commom_shuzi_hong_5": [
+    762,
+    281,
+    56,
+    85
+  ],
+  "LargeCard_commom_shuzi_hong_6": [
+    822,
+    281,
+    56,
+    87
+  ],
+  "LargeCard_commom_shuzi_hong_7": [
+    882,
+    281,
+    57,
+    85
+  ],
+  "LargeCard_commom_shuzi_hong_8": [
+    943,
+    281,
+    58,
+    87
+  ],
+  "LargeCard_commom_shuzi_hong_9": [
+    2,
+    379,
+    57,
+    87
+  ],
+  "LargeCard_commom_shuzi_hong_10": [
+    63,
+    379,
+    71,
+    84
+  ],
+  "LargeCard_commom_shuzi_hong_11": [
+    138,
+    379,
+    55,
+    86
+  ],
+  "LargeCard_commom_shuzi_hong_12": [
+    197,
+    379,
+    61,
+    93
+  ],
+  "LargeCard_commom_shuzi_hong_13": [
+    262,
+    379,
+    62,
+    82
+  ],
+  "LargeCard_huase_1": [
+    328,
+    379,
+    34,
+    34
+  ],
+  "LargeCard_huase_2": [
+    366,
+    379,
+    34,
+    34
+  ],
+  "LargeCard_huase_3": [
+    404,
+    379,
+    34,
+    34
+  ],
+  "LargeCard_huase_4": [
+    442,
+    379,
+    34,
+    34
+  ],
+  "btn_jdz": [
+    480,
+    379,
+    211,
+    100
+  ],
+  "xiaohui_button": [
+    695,
+    379,
+    170,
+    90
+  ],
+  "xiaolu_button": [
+    2,
+    483,
+    170,
+    94
+  ],
+  "bujiao_playing": [
+    176,
+    483,
+    125,
+    74
+  ],
+  "buchu_playing": [
+    305,
+    483,
+    123,
+    73
+  ],
+  "yaobuqi": [
+    432,
+    483,
+    187,
+    77
+  ],
+  "jiaodizhu_playing": [
+    623,
+    483,
+    191,
+    76
+  ],
+  "yifen_zhuomian_jinbiaosai": [
+    818,
+    483,
+    95,
+    70
+  ],
+  "erfen_zhuomian_jinbiaosai": [
+    2,
+    581,
+    111,
+    70
+  ],
+  "sanfen_zhuomian_jinbiaosai": [
+    117,
+    581,
+    110,
+    70
+  ]
+}

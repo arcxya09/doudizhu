@@ -1,8 +1,12 @@
+## v3.5.0 资源更新
+
+已接入用户上传安装包中的46个牌面/按钮精灵、露台背景和约30秒的常规对局BGM。新增完整点数报牌与牌型语音，合计62种声音；保留离线音乐导入。此版使用原始图片与音频数据，未移植原游戏代码或网络功能。来源见 [资源接入记录](docs/UPLOADED-RESOURCES.md)。
+
 # 闲来斗地主 — Kotlin 原生 Android 版
 
-v3.4.0 根据用户提供的 `16057.mp4` 继续校正蓝色布面牌桌：参考字形的扑克牌角标、加宽牌身、收拢的17张叠牌、左右贴近头像的出牌区，以及较小的橙色/蓝紫按钮。洗牌、叫地主、飞机、王炸和“要不起”使用独立短音。背景音乐可从手机选择本地文件，导入后随时离线播放，并可恢复默认乐段。
+v3.5.0 使用上传资源包的牌面、按钮、露台背景与完整常规对局BGM。保持17至20张大牌叠放、三家出牌区及原生触控操作。背景音乐也可从手机选择本地文件，导入后离线播放。
 
-[下载安装包](https://github.com/arcxya09/doudizhu/releases/tag/v3.4.0) · Android 8.0 及以上。
+[下载安装包](https://github.com/arcxya09/doudizhu/releases/tag/v3.5.0) · Android 8.0 及以上。
 
 完全离线，APK 不申请联网权限。使用 Kotlin 原生 View / Canvas，没有 WebView、HTML 或 JavaScript。移除商城、礼包、聊天、在线段位、充值和小程序入口；保留本地托管、重选、设置与帮助。
 
@@ -19,10 +23,10 @@ v3.4.0 根据用户提供的 `16057.mp4` 继续校正蓝色布面牌桌：参考
 
 - `Rules.kt`：纯 Kotlin 牌型、出牌状态机、计分和人机策略。
 - `MainActivity.kt` / `TableViews.kt`：原生布局、按钮绘制、圆头像、记牌器、三家出牌区及设置。
-- `CardViews.kt`：单排叠牌、横滑选择、选中抬升、点数贴图和原生花色绘制。点数字形取自用户提供的参考，来源与尺寸见 [CARDS.md](docs/CARDS.md)。
+- `CardViews.kt`：单排叠牌、横滑选择、选中抬升、点数与花色图集绘制。现行牌面来源见 [UPLOADED-RESOURCES.md](docs/UPLOADED-RESOURCES.md)，旧版记录见 [CARDS.md](docs/CARDS.md)。
 - `AudioEngine.kt` / `LocalMusicStore.kt`：MediaPlayer 播放默认或本地导入的音乐，SoundPool 播放短音；导入文件在后台复制并验证，选择记录原子保存。处理音频焦点、报牌时压低音乐及生命周期。录屏和素材页来源、处理方式与限制见 [AUDIO.md](docs/AUDIO.md)。
-- 蓝色桌布由图像工具根据参考帧清理并制作；三个圆头像来自用户提供的录屏，制作记录见 [ARTWORK.md](docs/ARTWORK.md)。
-- `assets/cards.webp` 的牌背与中央图案基于公共领域 [saulspatz/SVGCards](https://github.com/saulspatz/SVGCards)，许可见 `CARD_ART_LICENSE.txt`。用户参考片段的素材并不因此获得新的开源许可。
+- 露台背景来自上传包的freetime贴图；三个圆头像沿用用户提供录屏的版本。旧版蓝色桌布制作记录见 [ARTWORK.md](docs/ARTWORK.md)。
+- 保留的旧版 `assets/cards.webp`（现行牌面不再加载）的牌背与中央图案基于公共领域 [saulspatz/SVGCards](https://github.com/saulspatz/SVGCards)，许可见 `CARD_ART_LICENSE.txt`。用户参考片段的素材并不因此获得新的开源许可。
 
 ## 规则约定
 

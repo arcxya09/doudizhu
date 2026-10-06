@@ -28,10 +28,9 @@ class AudioCuesTest {
     }
 
     @Test fun decliningTheScoreBidDoesNotAnnounceAnUnimplementedRobbingPhase() {
-        // The game's zero-point action is “不叫”; the available “不抢” clip must
-        // never be assigned to it. Use the neutral selection sound instead.
-        assertEquals("select", AudioCues.forBid(0))
-        for (points in 1..3) assertEquals("bid", AudioCues.forBid(points))
+        // Imported NoOrder says “不叫”; score clips map to the actual auction points.
+        assertEquals("bid_pass", AudioCues.forBid(0))
+        for (points in 1..3) assertEquals("bid_$points", AudioCues.forBid(points))
     }
 
     @Test fun allLegalAirplaneVariantsUseTheAirplaneAnnouncement() {
@@ -43,5 +42,18 @@ class AudioCuesTest {
             assertEquals(expectedKinds[index], move.kind)
             assertEquals("airplane", AudioCues.forMove(move, played, null))
         }
+    }
+
+    @Test fun spokenRanksAndPatternsMatchThePlayedCards() {
+        for(rank in 3..17){
+            val hand=cards(rank);assertEquals("single_$rank",AudioCues.forMove(Rules.classify(hand),hand,null))
+            if(rank<=15){
+                val triple=cards(rank,rank,rank);assertEquals("triple_$rank",AudioCues.forMove(Rules.classify(triple),triple,null))
+                val pair=cards(rank,rank);val name=when(rank){13->"pair_k";14->"pair_a";15->"pair_2";else->"pair_$rank"}
+                assertEquals(name,AudioCues.forMove(Rules.classify(pair),pair,null))
+            }
+        }
+        val examples=listOf(cards(3,4,5,6,7) to "straight",cards(3,3,4,4,5,5) to "pairs",cards(3,3,3,4) to "triple_single",cards(3,3,3,4,4) to "triple_pair",cards(3,3,3,3,4,5) to "four_single",cards(3,3,3,3,4,4,5,5) to "four_pair")
+        for((hand,name) in examples)assertEquals(name,AudioCues.forMove(Rules.classify(hand),hand,null))
     }
 }

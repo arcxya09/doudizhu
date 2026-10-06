@@ -1,0 +1,792 @@
+{
+  "source_archive": "qqhlddz-8-057-016.zip",
+  "source_sha256": "3c07fca5bf641cd9f9054108a4af1267312a2c7765f92ea21acac80c555b0fad",
+  "source_version": "8.057.016",
+  "note": "Extracted from user-supplied archive; original asset ownership is unchanged. No SDK, executable code or online module imported. cannot_beat.wav retains its v3.4 source.",
+  "resources": [
+    {
+      "output": "game_atlas.png#large_card_bgx",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "large_card_bgx",
+      "object_id": 848863893026605313,
+      "decoded_sha256": "5946d6b3975b5fd33e84ef053b9bd01b6672ccd8fcaa25f484feba02154196d6"
+    },
+    {
+      "output": "game_atlas.png#large_card_anti",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "large_card_anti",
+      "object_id": 2646001773100017205,
+      "decoded_sha256": "3c33661d2fdec75ca0ac678160fd9123fe09e4c1336042d509c0bb689826a82b"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_king_14",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_king_14",
+      "object_id": -8539959544722172498,
+      "decoded_sha256": "af4219098516e6d0e39017d0464ac6a496c98f20a60a14f7849df7391b931594"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_king_15",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_king_15",
+      "object_id": -3870687076592407970,
+      "decoded_sha256": "bb8a63f41bdc41165df532f812197bdccebd59b0ddf59ef5cb05d0a507ea9049"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_king_huase_14",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_king_huase_14",
+      "object_id": 8497015747069662120,
+      "decoded_sha256": "a0c79d4f498928fb9a57d43274ea1a5a9347f34a15cf79c8d102002dec6bd1ef"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_king_huase_15",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_king_huase_15",
+      "object_id": 5345757765511851448,
+      "decoded_sha256": "357940cdc2fc3c6cc1bd4baf087adb8ca15bd1b9c00c1f2c5e3412a8030585ed"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hei_1",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hei_1",
+      "object_id": 7748609575345569251,
+      "decoded_sha256": "47f11099f449096efb3bd0723dde0ddc5e512499719b2097e74e8712cb24fc57"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hei_2",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hei_2",
+      "object_id": 9086216311843670337,
+      "decoded_sha256": "5e68bdcabac8f777d8bc1dc6bc184c0b779563c199b288bf0dac5ef77218a4ad"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hei_3",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hei_3",
+      "object_id": 8314656667457395484,
+      "decoded_sha256": "1553f97c07a5b37e722f3598a8c24f78a953608d1a4eaebfbfe221d2b4836944"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hei_4",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hei_4",
+      "object_id": 1976562995869156892,
+      "decoded_sha256": "d5ce6ba4e6a99dbe71366a28f579a1ac4fa5ac89a9456609f067e3c33a73cd3a"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hei_5",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hei_5",
+      "object_id": -354825398729217477,
+      "decoded_sha256": "927af91cff80402baa4a462286ec37acde5dc020922f4986c7e27c8d1df1df39"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hei_6",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hei_6",
+      "object_id": 8017903656945129402,
+      "decoded_sha256": "681cfac73e2f89adc6585541b19b42d88df843b6eb55f0fbba15ad53e50b433c"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hei_7",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hei_7",
+      "object_id": 5956035837451582800,
+      "decoded_sha256": "149e052d548a1e654fee24835a3a78aa48037e9429401bce8f834f93dd48d430"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hei_8",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hei_8",
+      "object_id": 1855010236585782392,
+      "decoded_sha256": "2d2ad0e2596ba7c63e4cd161c1f6a95d22d01cc059ca93f478a7b7e10faca99d"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hei_9",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hei_9",
+      "object_id": -9034591048294299922,
+      "decoded_sha256": "bb1c3392b8ecd357b05e24fa156b8abddf8c688f38bb7c49394d09592913df19"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hei_10",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hei_10",
+      "object_id": 4387009153907675228,
+      "decoded_sha256": "cc6c1ce11bd83797bc003e43f24e1af111fa5559ae06bdefa68cb61b1b1ad716"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hei_11",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hei_11",
+      "object_id": 1821426556236745462,
+      "decoded_sha256": "59c25fa9cee6d3929e3143759acea4c482c0ddde5f06a7b2fc679e05daa84173"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hei_12",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hei_12",
+      "object_id": -2838522025913724201,
+      "decoded_sha256": "b8dc23ac5bbf927411d67c5c5cb110f5512daecf8e0f10bdde8b6099e50171ff"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hei_13",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hei_13",
+      "object_id": 2651746964156345980,
+      "decoded_sha256": "ebe6d7aece928feeb2dbc9a085fca82f69c309d54933bb9d419ef21678cdaa80"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hong_1",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hong_1",
+      "object_id": -7633276498187596916,
+      "decoded_sha256": "a6453fc50457cb4ef5462c99104f19ccdd89774996145d53cdc8f56b03608fa6"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hong_2",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hong_2",
+      "object_id": -5945730829798389307,
+      "decoded_sha256": "a6aee0362517adcc418c00e7eff6d385c116544df47b941c322fd4114fc40c33"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hong_3",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hong_3",
+      "object_id": -4797292949845312783,
+      "decoded_sha256": "0a158b56d5045d561574695ee9d904ec295be886676da487e79c22c808877e27"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hong_4",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hong_4",
+      "object_id": -3677818978926367236,
+      "decoded_sha256": "41c612898ed92100b464cb3c762434675e2b52b154bc4fba167dd7c6ee0eced9"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hong_5",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hong_5",
+      "object_id": -3025615974675604311,
+      "decoded_sha256": "24f96bf5d1a37a5939ba15d7d3ddf93926c91db480cc445f0dba004c5bf1011e"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hong_6",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hong_6",
+      "object_id": 661398664279690793,
+      "decoded_sha256": "901f29ad8eeeac9c79bdc1a60f4487fc205d8f7269475041fecf0d55826082c8"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hong_7",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hong_7",
+      "object_id": -235935410725342242,
+      "decoded_sha256": "da2788ebe8a9f6227a31e101bfb77be6627823b53a1870280115d10c6a495953"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hong_8",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hong_8",
+      "object_id": -1743241662544788140,
+      "decoded_sha256": "b503972bc20c34a83e5a484951a1a5df5623c54785afbcf122d174cf3be7a218"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hong_9",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hong_9",
+      "object_id": 394693125875035526,
+      "decoded_sha256": "10f53ff9a16ab020f93ab1c30989e3ff07f665dd1fc83c4c56b55dc95d3a5316"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hong_10",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hong_10",
+      "object_id": 4961514105042536574,
+      "decoded_sha256": "28608b6adaccc6c95a33019f92461f71fbde72934cda0aca78d116ec3e431fb3"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hong_11",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hong_11",
+      "object_id": 3517375575137013023,
+      "decoded_sha256": "b023ff9508d30238adf51bfe58ca44937a328adf2a663af7e3da72eea9cf2484"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hong_12",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hong_12",
+      "object_id": -221187520076676036,
+      "decoded_sha256": "2641ebf35162a57529a5db3c9896e111299953828f2962c641b31d7679a6b52e"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_commom_shuzi_hong_13",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_commom_shuzi_hong_13",
+      "object_id": 4182180799277781802,
+      "decoded_sha256": "6cd75e4728597c8aa1a60e60c141eba92ba11a24bca3bbf3cc29de7e3e324dce"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_huase_1",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_huase_1",
+      "object_id": 4804505814322749751,
+      "decoded_sha256": "c19f809ae6021c62dc0354450bfbcfa222ada46c0f07c735fd4a8cc2858d0a64"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_huase_2",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_huase_2",
+      "object_id": 7463825214489850074,
+      "decoded_sha256": "5d5c54f10de50c17e2a593d584ebae578a44429869fc687ea791a89680b6ea7a"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_huase_3",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_huase_3",
+      "object_id": 723236518891902626,
+      "decoded_sha256": "02dde850c5fa8c7a293c3c9f5fc36b7319ea7b18e6b5d86e9f9063f69e970d69"
+    },
+    {
+      "output": "game_atlas.png#LargeCard_huase_4",
+      "bundle": "assets/aa/Android/operatingcommon_card_default_group_assets_all.bundle",
+      "name": "LargeCard_huase_4",
+      "object_id": 6430502179773727261,
+      "decoded_sha256": "3bbe9ad5de1422c5642046606e027bf06e6478640147e43fd6aa70177f221578"
+    },
+    {
+      "output": "game_atlas.png#btn_jdz",
+      "bundle": "assets/aa/Android/playingdlc_common_ui_playingcommonatlas_group_assets_all.bundle",
+      "name": "btn_jdz",
+      "object_id": 7878899834300197093,
+      "decoded_sha256": "1bf37eb762f9af8a0dfbff52da5ccb09f59e691ecec8ab13ead9f2a0eb4d99d9"
+    },
+    {
+      "output": "game_atlas.png#xiaohui_button",
+      "bundle": "assets/aa/Android/playingdlc_common_ui_playingatlas_group_assets_all.bundle",
+      "name": "xiaohui_button",
+      "object_id": 6718053369571232757,
+      "decoded_sha256": "d4784ba841de5574fc421b15781f4043dbbdd01c91de60f50dcb2d516bd1bd04"
+    },
+    {
+      "output": "game_atlas.png#xiaolu_button",
+      "bundle": "assets/aa/Android/playingdlc_common_ui_playingcommonatlas_group_assets_all.bundle",
+      "name": "xiaolu_button",
+      "object_id": 2049750032353302589,
+      "decoded_sha256": "6628027d1c8a00e648bd8151d1341f1ee4493d91ce859a429b75381b1d1ad07e"
+    },
+    {
+      "output": "game_atlas.png#bujiao_playing",
+      "bundle": "assets/aa/Android/playingdlc_common_ui_playingatlas_group_assets_all.bundle",
+      "name": "bujiao_playing",
+      "object_id": -8704491065208620974,
+      "decoded_sha256": "ad6d8cee20d3c9f02d4b423d9f77757ae5e26e5eada9566e16e38ac13f618719"
+    },
+    {
+      "output": "game_atlas.png#buchu_playing",
+      "bundle": "assets/aa/Android/playingdlc_common_ui_playingatlas_group_assets_all.bundle",
+      "name": "buchu_playing",
+      "object_id": 2798141004493771377,
+      "decoded_sha256": "b11b3e05a52e3a36fd734d7a18180a6d1a648b3523fe3bf8b701d4c3d8b8745e"
+    },
+    {
+      "output": "game_atlas.png#yaobuqi",
+      "bundle": "assets/aa/Android/playingdlc_common_ui_playingatlas_group_assets_all.bundle",
+      "name": "yaobuqi",
+      "object_id": -4744979279484167402,
+      "decoded_sha256": "294f681f2f1c8abd26b197e04a8cadbae5c8ee441e8f6735ed3abb1aa3101db9"
+    },
+    {
+      "output": "game_atlas.png#jiaodizhu_playing",
+      "bundle": "assets/aa/Android/playingdlc_common_ui_playingcommonatlas_group_assets_all.bundle",
+      "name": "jiaodizhu_playing",
+      "object_id": -2085708469191902749,
+      "decoded_sha256": "f8cf0967c664ab1369d76b29b77abc76170cc90d4550224e82fb5b9faea8d50e"
+    },
+    {
+      "output": "game_atlas.png#yifen_zhuomian_jinbiaosai",
+      "bundle": "assets/aa/Android/playingdlc_common_ui_playingatlas_group_assets_all.bundle",
+      "name": "yifen_zhuomian_jinbiaosai",
+      "object_id": 2981620869547708058,
+      "decoded_sha256": "6dd9fe5fee2bb5e4f53e33c2bb1a179a4ff9e17fbf11fddc77879b293c4ae7e2"
+    },
+    {
+      "output": "game_atlas.png#erfen_zhuomian_jinbiaosai",
+      "bundle": "assets/aa/Android/playingdlc_common_ui_playingatlas_group_assets_all.bundle",
+      "name": "erfen_zhuomian_jinbiaosai",
+      "object_id": -5956159075674266072,
+      "decoded_sha256": "36cfc568dc9261a161da5d89ef237fd751c171e53f41fbf04c089d11d105c8ab"
+    },
+    {
+      "output": "game_atlas.png#sanfen_zhuomian_jinbiaosai",
+      "bundle": "assets/aa/Android/playingdlc_common_ui_playingatlas_group_assets_all.bundle",
+      "name": "sanfen_zhuomian_jinbiaosai",
+      "object_id": -5133447854666231767,
+      "decoded_sha256": "19e94e19a109c24182b839ffd52f85ef1f03cb1d42e05383a210d64bffb2cd73"
+    },
+    {
+      "output": "game_background.webp",
+      "bundle": "assets/aa/Android/scene_in_001_freetime2d_group_assets_all.bundle",
+      "name": "freetime",
+      "object_id": 1469993658791160038,
+      "decoded_sha256": "2574c84be5b208351a5de676a946114187b438b5c50a669812d59cb35badb453"
+    },
+    {
+      "output": "audio/select.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_special_group_assets_all.bundle",
+      "name": "SpecSelectCard",
+      "object_id": -4619443139563577495,
+      "decoded_sha256": "af4cab397875de8008c407ecec64032b6e645956673e963d0a569d3bf14c894d"
+    },
+    {
+      "output": "audio/play.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_special_2_group_assets_all.bundle",
+      "name": "Special_Discard",
+      "object_id": -2955518457138026216,
+      "decoded_sha256": "8e712e02e2bc14d7f57fb77bd1d2d6d9df3740045aa02d9978faced591cf0afb"
+    },
+    {
+      "output": "audio/deal.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_special_2_group_assets_all.bundle",
+      "name": "Special_Dispatch_2D",
+      "object_id": -4577492973370234940,
+      "decoded_sha256": "6592b92aa00ca77cd868317eb279199d1eb6046332be9324baa41220beb0139e"
+    },
+    {
+      "output": "audio/bid.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "Order",
+      "object_id": 8539295472240024695,
+      "decoded_sha256": "4616782f74f31ee9f659268dd4fc1de703890a39f812f0db4644efa8a0da2347"
+    },
+    {
+      "output": "audio/bid_pass.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "NoOrder",
+      "object_id": 4741149989750670723,
+      "decoded_sha256": "d686c7019595d8d752b52e302adc767bcef0a307a06acf55364228fff9e3175d"
+    },
+    {
+      "output": "audio/pass.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "buyao4",
+      "object_id": -5560021863076930115,
+      "decoded_sha256": "c7c6df0a71c1050311f728f7aa3722ab0970e237f3660f8547923a2f1ce1d9a1"
+    },
+    {
+      "output": "audio/bomb.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_special_2_group_assets_all.bundle",
+      "name": "Special_Bomb_New",
+      "object_id": 4005566504467419342,
+      "decoded_sha256": "6bbe85a842d0f6eec55b19e29e4b6ea0c8ef6f50809d751166e8206d81acea72"
+    },
+    {
+      "output": "audio/bomb.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "zhadan",
+      "object_id": 6535959223960567017,
+      "decoded_sha256": "9d3178853b966e36b6a2d249655a716262120d692a4c75a4c7a3edff8e799c4e"
+    },
+    {
+      "output": "audio/rocket.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_special_group_assets_all.bundle",
+      "name": "Special_wangzhajie",
+      "object_id": -6171631875994132772,
+      "decoded_sha256": "a1933794508004a0485aa88ee3428d57f4fd7455610b6b0ee841619060d8dfc4"
+    },
+    {
+      "output": "audio/rocket.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "wangzha",
+      "object_id": 1005528882303738968,
+      "decoded_sha256": "0629a141b7fa3336939e72fb90de13205c42086d142185934734b05bcfa0a76d"
+    },
+    {
+      "output": "audio/airplane.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_special_group_assets_all.bundle",
+      "name": "Special_plane",
+      "object_id": -8365747215504722228,
+      "decoded_sha256": "ac3bdb8624a9ae5d957e07fba88fff98cb56d4284809566d59fd2d5b33ee341f"
+    },
+    {
+      "output": "audio/airplane.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "feiji",
+      "object_id": -4260288031793640894,
+      "decoded_sha256": "5060fdddd8bfbddc4712ffd71e53796ff9db1764c835a8edd6e3493e2ae92df5"
+    },
+    {
+      "output": "audio/win.wav",
+      "bundle": "assets/aa/Android/sound_split_bgm_2_group_assets_all.bundle",
+      "name": "MusicEx_Win",
+      "object_id": 9089932018947562283,
+      "decoded_sha256": "84998feac7b7e785809285af605297d0f1f90454c220b5bb5a35193d229660da"
+    },
+    {
+      "output": "audio/lose.wav",
+      "bundle": "assets/aa/Android/sound_split_bgm_2_group_assets_all.bundle",
+      "name": "MusicEx_Lose",
+      "object_id": 2913344074901535317,
+      "decoded_sha256": "247e54bf9bd73c6950b5ca24cf1ddc39f6f9e06cf7c7e9f8ddd417c1eb4a84f5"
+    },
+    {
+      "output": "audio/straight.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "shunzi",
+      "object_id": 4877957524527719417,
+      "decoded_sha256": "d9c8f3a92b3d8d1a7832af8205c0d488f1ef66a2a6080d6712c7a4b976497dcf"
+    },
+    {
+      "output": "audio/pairs.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "liandui",
+      "object_id": 8566362526559360963,
+      "decoded_sha256": "d668e908e80d22a0c9b0752a9bd7463333d2fc2204db0601b75aa11956ceec26"
+    },
+    {
+      "output": "audio/triple_single.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "sandaiyi",
+      "object_id": -4375162167589793548,
+      "decoded_sha256": "e9c04a524d00f9a70e472884fed21c5425a393820ae92c7a637778c54a6d75dd"
+    },
+    {
+      "output": "audio/triple_pair.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "sandaiyidui",
+      "object_id": 6358890884634663889,
+      "decoded_sha256": "a9fa818963321cb6b3d67b77a4d57f0d214da6833f4d18587d52b0cab224ce83"
+    },
+    {
+      "output": "audio/four_single.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "sidaier",
+      "object_id": -8584704451677772241,
+      "decoded_sha256": "5e96854a7eb4779470ac8d7c5fc2468cc93818071b3627c2e100ee741e9c26e6"
+    },
+    {
+      "output": "audio/four_pair.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "sidailiangdui",
+      "object_id": 5894651272248426190,
+      "decoded_sha256": "e9bb0b8102d6ee529d7afbadf11cb50c3a5293b0d65146311349d059ea1974a8"
+    },
+    {
+      "output": "audio/single_3.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_1_group_assets_all.bundle",
+      "name": "3",
+      "object_id": 2525017638410591233,
+      "decoded_sha256": "e9e1f2fe3dbc053be9c3eb4e0b66198ad2e00b63e3d761b51725e295236f0827"
+    },
+    {
+      "output": "audio/pair_3.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "dui3",
+      "object_id": -3753227956709696861,
+      "decoded_sha256": "2088fff3d328eae9d8bef59f430aee2cfdd88f174b7a53cf99123f57be8a98f9"
+    },
+    {
+      "output": "audio/triple_3.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "tuple3",
+      "object_id": -1495164479173353354,
+      "decoded_sha256": "e4d210fa96741f037430b21a5a40949337e6bc7c86e24235898ae216cc6e4b25"
+    },
+    {
+      "output": "audio/single_4.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_1_group_assets_all.bundle",
+      "name": "4",
+      "object_id": -2782007621105858092,
+      "decoded_sha256": "ef0d382e229f0c4f69243501c2c2b8d619cdf6de9b6a5f7c2540a70ed9c1e6d4"
+    },
+    {
+      "output": "audio/pair_4.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "dui4",
+      "object_id": 2319386206807732987,
+      "decoded_sha256": "369446d4ecbd0baeafba3a0efd6112ed293050e90120acf2403ae10992291433"
+    },
+    {
+      "output": "audio/triple_4.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "tuple4",
+      "object_id": 5326271159112962395,
+      "decoded_sha256": "42c482df6abbc263c284631cb9d99284649e1b38688b991fead088312462805e"
+    },
+    {
+      "output": "audio/single_5.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_1_group_assets_all.bundle",
+      "name": "5",
+      "object_id": -7331282163193257086,
+      "decoded_sha256": "43649310da86f89107525fad35ecb721f48349660e40506e125d3c9429743e67"
+    },
+    {
+      "output": "audio/pair_5.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "dui5",
+      "object_id": 4609974223930733222,
+      "decoded_sha256": "394d7725be6037cf5a2d4ee8811825dc52124c7be8c82ac293b2417356d8a65b"
+    },
+    {
+      "output": "audio/triple_5.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "tuple5",
+      "object_id": -4276165552283295267,
+      "decoded_sha256": "0d7e4fd640bf03e1f5c2d81a649c07db540180ccb07a449770c5f78ca3ec0a22"
+    },
+    {
+      "output": "audio/single_6.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_1_group_assets_all.bundle",
+      "name": "6",
+      "object_id": 3838166491229437212,
+      "decoded_sha256": "b4e7fa0b2c0a244a9bf83cbcda2e0f44374f7df277f8ce2782f06a19967101ac"
+    },
+    {
+      "output": "audio/pair_6.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "dui6",
+      "object_id": -5620696108213255868,
+      "decoded_sha256": "cbebb3066616639cf4b26b49c0e6097c407e0637f289296a9dfbd48a2cc2d7e1"
+    },
+    {
+      "output": "audio/triple_6.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "tuple6",
+      "object_id": -873486293185974405,
+      "decoded_sha256": "c00aaecc18b13d3ecce22de1108620ce54134d3bae546411c10c685bc098a037"
+    },
+    {
+      "output": "audio/single_7.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_1_group_assets_all.bundle",
+      "name": "7",
+      "object_id": 7594525921917863759,
+      "decoded_sha256": "5c76d8113f0b9f08de8573c9dbfb18b6827ea72d03c4f55d9571b165525ed66e"
+    },
+    {
+      "output": "audio/pair_7.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "dui7",
+      "object_id": 5979556100432668969,
+      "decoded_sha256": "f48564ebd95d45581defcd6f5af4cd409fc2ec5b5be53d7b0fe409e4c27d7915"
+    },
+    {
+      "output": "audio/triple_7.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "tuple7",
+      "object_id": -6454399971209689059,
+      "decoded_sha256": "c55ce6838d0e5b18ddd38e7586082561ab01e32fe24c01b4e8b67474c64a3baf"
+    },
+    {
+      "output": "audio/single_8.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_1_group_assets_all.bundle",
+      "name": "8",
+      "object_id": -6130632621506824432,
+      "decoded_sha256": "53ee7eafa2aa104516e8d8031087ed54a1f906833dfade48c94b7dd10124d279"
+    },
+    {
+      "output": "audio/pair_8.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "dui8",
+      "object_id": 8639424655974837130,
+      "decoded_sha256": "00074d892e13bf509800ecd56c227dfc41339dede4ad1493b8e7f22dbea81d4f"
+    },
+    {
+      "output": "audio/triple_8.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "tuple8",
+      "object_id": -6921949618762601902,
+      "decoded_sha256": "baa8e252c4ed64db0fa1fa165b8b3e02e83e2e713cfb4c1d2722b09606dacf4a"
+    },
+    {
+      "output": "audio/single_9.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_1_group_assets_all.bundle",
+      "name": "9",
+      "object_id": -6690964058763020898,
+      "decoded_sha256": "7bbbe8df189eb174c15b1a5ad0e0a9fc575940f690578f8cdaa5b1a8b4594845"
+    },
+    {
+      "output": "audio/pair_9.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "dui9",
+      "object_id": -4749065089644842548,
+      "decoded_sha256": "2205ea1122b4b7bc64a14f1ae0d74bbff290a3c8b2ab89cfc4f8d6dc78a61d9e"
+    },
+    {
+      "output": "audio/triple_9.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "tuple9",
+      "object_id": 7752633346037475147,
+      "decoded_sha256": "1ee3076bb662ac864cfbb6ce9b2a1f5f9e75e061d3f047c99b6fee0b7daf2d50"
+    },
+    {
+      "output": "audio/single_10.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_1_group_assets_all.bundle",
+      "name": "10",
+      "object_id": -7166556950093934713,
+      "decoded_sha256": "dc7deac0a02776fff6bc479dd5e03370d7ceadf0049bf0755aa9ee3392ddc6ce"
+    },
+    {
+      "output": "audio/pair_10.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "dui10",
+      "object_id": 4594840776678559322,
+      "decoded_sha256": "dba311b3e58519f7e1c896ab1ea1e05029f760cd187aaf023dc0579d42598d63"
+    },
+    {
+      "output": "audio/triple_10.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "tuple10",
+      "object_id": -7318109052775316648,
+      "decoded_sha256": "39c7b17c5fa4620b8b45dfc9e8a49049ac56a0117f0ad5a535830b73b31958be"
+    },
+    {
+      "output": "audio/single_11.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_1_group_assets_all.bundle",
+      "name": "11",
+      "object_id": 7108206025465308606,
+      "decoded_sha256": "99e6bdf1d20d285956fed453c3147fd883a30f5d41713fb339ce233b96c55dc5"
+    },
+    {
+      "output": "audio/pair_11.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "dui11",
+      "object_id": 5338672480590590143,
+      "decoded_sha256": "ee4dd96e89ec20ed9fe4ddf7617911e8bdf1ad871217b6c1cd5161d0b2d914fe"
+    },
+    {
+      "output": "audio/triple_11.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "tuple11",
+      "object_id": -5225261728855616945,
+      "decoded_sha256": "2cb0e4928fb58bac86bf7396ae471b2c8c75853a590817fd8900cb52cc0f8cf3"
+    },
+    {
+      "output": "audio/single_12.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_1_group_assets_all.bundle",
+      "name": "12",
+      "object_id": 7123077640585053561,
+      "decoded_sha256": "e936abfce4f1ce54f18b885ac447946e74f119d431840d7d39c07ae183c291fc"
+    },
+    {
+      "output": "audio/pair_12.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "dui12",
+      "object_id": 8204089699388421723,
+      "decoded_sha256": "03ba43eabbe57dc47d9be4c24ade9c7b86b6e60cd9221761277871456f6c874b"
+    },
+    {
+      "output": "audio/triple_12.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "tuple12",
+      "object_id": -8386982235325467886,
+      "decoded_sha256": "51ab74dd8b0524aa00227b6d9b1938d9c1372e427089623cb233eb166da67eea"
+    },
+    {
+      "output": "audio/single_13.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_1_group_assets_all.bundle",
+      "name": "13",
+      "object_id": -5251515353895242652,
+      "decoded_sha256": "cab4dc8a17af5821846caad45fa52d7a2f40c559d1e0216ec71caa7c6add2af5"
+    },
+    {
+      "output": "audio/pair_k.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "dui13",
+      "object_id": 1021836277481202573,
+      "decoded_sha256": "11429ce5f624887db13f451b8567075e1a5de72f05726f80f810645cee221bf9"
+    },
+    {
+      "output": "audio/triple_13.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "tuple13",
+      "object_id": -3264360468580585366,
+      "decoded_sha256": "e7c1baaddb28500bae420ab67faf975ad93a1960ce7eea901788c0898d9a0f32"
+    },
+    {
+      "output": "audio/single_14.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_1_group_assets_all.bundle",
+      "name": "1",
+      "object_id": -3844570956243304066,
+      "decoded_sha256": "8f068370c3a97ca7e2617176ed1c14aaaec3eb53f4ad588c013880131428f865"
+    },
+    {
+      "output": "audio/pair_a.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "dui1",
+      "object_id": 747412339195224749,
+      "decoded_sha256": "6d3466ab399dabab077a0ca43dadd7cb7d3cd308617fbc1d25248be3c6755ce1"
+    },
+    {
+      "output": "audio/triple_14.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "tuple1",
+      "object_id": 2911186189709977613,
+      "decoded_sha256": "993c8b0f2c66a791a701eeed9fa68305781c965569178d3312188dcad99bd6e9"
+    },
+    {
+      "output": "audio/single_15.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_1_group_assets_all.bundle",
+      "name": "2",
+      "object_id": 6760211546398426478,
+      "decoded_sha256": "5e802a4e4d8d19ba4f40a992d3a2fb4724104374c169fe6a6f4752883cb55cfa"
+    },
+    {
+      "output": "audio/pair_2.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "dui2",
+      "object_id": -1429724676673879555,
+      "decoded_sha256": "0c6665630ab3bcdbbad655203796fc594e72434458f8f6a047777a99a37893cb"
+    },
+    {
+      "output": "audio/triple_15.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "tuple2",
+      "object_id": 9115907731137443903,
+      "decoded_sha256": "2f9317cd7ee43af66e1975af4856e15d5ca6ad51b4e56479aaab70e10d195abf"
+    },
+    {
+      "output": "audio/single_16.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_1_group_assets_all.bundle",
+      "name": "14",
+      "object_id": -7874639694384055102,
+      "decoded_sha256": "ac8b8a096ee5773e9a461a4f0dee222f1f07de3575e76015a84f0ec51492d2da"
+    },
+    {
+      "output": "audio/single_17.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_1_group_assets_all.bundle",
+      "name": "15",
+      "object_id": 8421456198416468977,
+      "decoded_sha256": "066537d457b3cf9dabbc12afe030805116e64e912b4346dae324691f52f4949d"
+    },
+    {
+      "output": "audio/bid_1.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "ScoreOrder1",
+      "object_id": -3846861684423923865,
+      "decoded_sha256": "85bc0ff75e2a3dd1364375ceca8ba6292702d230a5ce10b5227ef6912befb200"
+    },
+    {
+      "output": "audio/bid_2.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "ScoreOrder2",
+      "object_id": -1364819201887612542,
+      "decoded_sha256": "fb9a2be523b0f04e6cc977e5f2e599f40f09b497f28a3ee949f3d1005e7fc1b5"
+    },
+    {
+      "output": "audio/bid_3.wav",
+      "bundle": "assets/aa/Android/sound_split_ingame_man_2_group_assets_all.bundle",
+      "name": "ScoreOrder3",
+      "object_id": -6047131034178850747,
+      "decoded_sha256": "a1249b8ff0487ca6570f51aefad93f1ddf7bbdf6452f2242b6d1a525851bee74"
+    },
+    {
+      "output": "audio/table_loop.ogg",
+      "bundle": "assets/aa/Android/sound_split_bgm_1_group_assets_all.bundle",
+      "name": "MusicEx_Normal",
+      "object_id": 5431342639200824445,
+      "decoded_sha256": "41763fe5ef72429bbc3aadeeae8fb5cd2ca0e5fb5fda92d523d7c25fb1a4e105"
+    }
+  ]
+}

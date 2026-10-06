@@ -124,7 +124,7 @@ class MainActivity: Activity() {
         val options=tool("设置",3){showSettings()}
         listOf(clear,autoButton,options).forEachIndexed{i,v->table.place(v,.709f+i*.052f,.003f,.047f,.11f)}
         table.place(TableWordmark(this),.425f,.198f,.15f,.18f)
-        stakes=label("",12f,0x99506b9f.toInt()).apply{setShadowLayer(0f,0f,0f,0)};table.place(stakes,.32f,.38f,.36f,.04f)
+        stakes=label("",12f,0xffeef4ff.toInt()).apply{background=background(0x60304368)};table.place(stakes,.32f,.38f,.36f,.04f)
         val self=SeatAvatar(this,"seat_self.webp");val left=SeatAvatar(this,"seat_left.webp");val right=SeatAvatar(this,"seat_right.webp")
         people.addAll(listOf(self,left,right))
         table.place(left,.047f,.255f,.066f,.143f);table.place(right,.89f,.255f,.066f,.143f)
@@ -136,7 +136,7 @@ class MainActivity: Activity() {
             val local=label("",10f,0xffffe77b.toInt());difficultyLabels.add(local);table.place(local,x,.51f,.08f,.05f)
             val count=label("",17f).apply{tag="opponent-text";background=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,intArrayOf(0xff70a7d3.toInt(),0xff467db2.toInt())).apply{cornerRadius=dp(2).toFloat();setStroke(dp(1),0xffc6eaff.toInt())}}
             counts.add(count);table.place(count,if(p==1).122f else .856f,.41f,.025f,.071f)
-            val cue=label("",25f,0xffc2f1ff.toInt()).apply{tag="opponent-text";setTypeface(null,Typeface.BOLD_ITALIC)};cues.add(cue)
+            val cue=GameCueLabel(this).apply{textSize=25f;gravity=Gravity.CENTER;setTextColor(0xffc2f1ff.toInt());tag="opponent-text";setTypeface(null,Typeface.BOLD_ITALIC)};cues.add(cue)
             table.place(cue,if(p==1).166f else .694f,.277f,.14f,.075f)
             val clock=TurnClock(this,"…");turnClocks.add(clock);table.place(clock,if(p==1).16f else .78f,.265f,.065f,.135f)
         }
