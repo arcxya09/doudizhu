@@ -254,7 +254,8 @@ class AudioEngine(context: Context) {
         if (key != "deal") pendingDeal = false
         val id = cues[key]?.takeIf { it in loaded } ?: return
         val duration = CUE_DURATIONS[key] ?: return
-        val isVoiceOrEvent = duration >= 500
+        // Some spoken ranks are shorter than 500 ms; classification is semantic.
+        val isVoiceOrEvent = key != "select" && key != "play"
         if (isVoiceOrEvent && foregroundStream != 0) { pool.stop(foregroundStream); streams.remove(foregroundStream) }
         val level = volume / 100f * if (key == "select") .5f else .9f
         val stream = pool.play(id, level, level, if (isVoiceOrEvent) 2 else 1, 0, 1f)

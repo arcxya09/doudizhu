@@ -326,6 +326,9 @@ class NativeUiTest {
             onMain(inst) {
                 engine.cue("rocket")
                 assertTrue("Recorded event starts", engine.testState().activeStreams > 0)
+                engine.cue("single_6")
+                assertEquals("Short spoken rank replaces the previous foreground voice", 1, engine.testState().activeStreams)
+                assertEquals("Short rank is the new foreground cue", "single_6", engine.testState().lastCue)
                 engine.configure(true, false, 45)
                 assertEquals("Disabling effects stops current cues", 0, engine.testState().activeStreams)
                 assertTrue("Music keeps playing when only effects are disabled", engine.testState().playing)
