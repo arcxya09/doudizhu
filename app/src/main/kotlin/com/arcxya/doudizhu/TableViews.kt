@@ -178,10 +178,10 @@ class ReferenceTable(context:Context):ViewGroup(context){
     fun place(view:View,x:Float,y:Float,w:Float,h:Float){zones.add(Zone(view,x,y,w,h));addView(view)}
     override fun onMeasure(ws:Int,hs:Int){
         setMeasuredDimension(MeasureSpec.getSize(ws),MeasureSpec.getSize(hs))
-        for(z in zones){val a=area(z.view);z.view.measure(MeasureSpec.makeMeasureSpec((a.width()*z.w).toInt().coerceAtLeast(1),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec((a.height()*z.h).toInt().coerceAtLeast(1),MeasureSpec.EXACTLY))}
+        for(z in zones){val a=area(z.view);z.view.measure(MeasureSpec.makeMeasureSpec((a.width()*z.w).toInt().coerceAtLeast(1),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(maxOf((a.height()*z.h).toInt(),z.view.minimumHeight,1),MeasureSpec.EXACTLY))}
     }
     override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){
-        for(z in zones){val a=area(z.view);val x=a.left+(a.width()*z.x).toInt();val y=a.top+(a.height()*z.y).toInt();z.view.layout(x,y,x+z.view.measuredWidth,y+z.view.measuredHeight)}
+        for(z in zones){val a=area(z.view);val x=a.left+(a.width()*z.x).toInt();val y=a.top+(a.height()*z.y).toInt()-(z.view.measuredHeight-(a.height()*z.h).toInt())/2;z.view.layout(x,y,x+z.view.measuredWidth,y+z.view.measuredHeight)}
         val available=Rect(safe.left,safe.top,width-safe.right,height-safe.bottom)
         val minimum=(48*resources.displayMetrics.density+.5f).toInt()
         val targets=mutableListOf<TableButtonTouchDelegate.Target>()

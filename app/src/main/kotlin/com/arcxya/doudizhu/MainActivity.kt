@@ -145,7 +145,7 @@ class MainActivity: Activity() {
             else table.place(cards,if(p==1).174f else .550f,.25f,.28f,.164f)
         }
         notice=label("",13f,0xffdaedff.toInt());table.place(notice,.29f,.50f,.42f,.078f)
-        actions=LinearLayout(this).apply{gravity=Gravity.CENTER;clipChildren=false};table.place(actions,.25f,.465f,.5f,.132f)
+        actions=LinearLayout(this).apply{gravity=Gravity.CENTER;clipChildren=false;minimumHeight=dp(48)};table.place(actions,.25f,.465f,.5f,.132f)
         hand=HandLayout(this).apply{contentDescription="我的手牌，点击或横滑选择，再点出牌";setPadding(0,dp(2),0,0)};table.place(hand,.048f,.585f,.904f,.332f)
         table.place(View(this).apply{setBackgroundColor(0x38303c69)},0f,.934f,1f,.066f)
         table.place(self,.047f,.846f,.069f,.137f)

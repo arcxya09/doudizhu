@@ -81,7 +81,13 @@ class NativeUiTest {
                     assertNotNull("Button caption laid out: ${button.text}", caption)
                     assertTrue("Full button caption height visible: ${button.text}",
                         caption.getLineBottom(caption.lineCount - 1) <= button.height-button.compoundPaddingTop-button.compoundPaddingBottom+1)
-                    if(button is ClassicActionButton) checkButtonArtwork(button)
+                    if(button is ClassicActionButton){
+                        val bounds=Rect()
+                        assertTrue("Action visible: ${button.text}",button.getGlobalVisibleRect(bounds))
+                        assertEquals("Entire action height visible: ${button.text}",button.height,bounds.height())
+                        assertEquals("Entire action width visible: ${button.text}",button.width,bounds.width())
+                        checkButtonArtwork(button)
+                    }
                 }
                 val image = Bitmap.createBitmap(decor.width, decor.height, Bitmap.Config.ARGB_8888)
                 decor.draw(Canvas(image))
