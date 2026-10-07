@@ -6,3 +6,11 @@ local.properties
 .idea/
 *.iml
 node_modules/
+
+*.p12
+*.pfx
+*store-password*
+*key-password*
+*keystore-base64*
+*signing-backup*
+__pycache__/

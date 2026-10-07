@@ -1,4 +1,14 @@
 plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
+def applicationVersionCode = 19
+def releaseSecretNames = ['DDZ_KEYSTORE_PATH', 'DDZ_STORE_PASSWORD', 'DDZ_KEY_ALIAS', 'DDZ_KEY_PASSWORD']
+def hasReleaseSigning = releaseSecretNames.every { System.getenv(it)?.trim() }
+def requireReleaseSigning = {
+    if (!hasReleaseSigning) throw new GradleException('Release requires permanent signing credentials. Debug signing and unsigned Release APKs are not allowed.')
+}
+if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }) requireReleaseSigning()
+gradle.taskGraph.whenReady { graph ->
+    if (graph.allTasks.any { it.project == project && it.name.toLowerCase().contains('release') }) requireReleaseSigning()
+}
 android {
     namespace 'com.arcxya.doudizhu'
     compileSdk 35
@@ -6,18 +16,36 @@ android {
         applicationId 'com.arcxya.doudizhu'
         minSdk 26
         targetSdk 35
-        versionCode 18
-        versionName '3.5.3'
+        versionCode (project.findProperty('ddzVersionCode') ?: applicationVersionCode).toInteger()
+        versionName '3.6.0'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
-    buildTypes { release { minifyEnabled false } }
+    signingConfigs {
+        if (hasReleaseSigning) {
+            permanentRelease {
+                storeFile file(System.getenv('DDZ_KEYSTORE_PATH'))
+                storeType 'PKCS12'
+                storePassword System.getenv('DDZ_STORE_PASSWORD')
+                keyAlias System.getenv('DDZ_KEY_ALIAS')
+                keyPassword System.getenv('DDZ_KEY_PASSWORD')
+                v1SigningEnabled true
+                v2SigningEnabled true
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            debuggable false
+            if (hasReleaseSigning) signingConfig signingConfigs.permanentRelease
+        }
+    }
     kotlinOptions { jvmTarget = '17' }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
 }
-
 dependencies {
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test:runner:1.6.2'
