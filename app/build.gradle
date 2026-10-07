@@ -1,5 +1,6 @@
 plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
 def applicationVersionCode = 19
+def resolvedVersionCode = (project.findProperty('ddzVersionCode') ?: applicationVersionCode).toString().toInteger()
 def releaseSecretNames = ['DDZ_KEYSTORE_PATH', 'DDZ_STORE_PASSWORD', 'DDZ_KEY_ALIAS', 'DDZ_KEY_PASSWORD']
 def hasReleaseSigning = releaseSecretNames.every { System.getenv(it)?.trim() }
 def requireReleaseSigning = {
@@ -16,7 +17,7 @@ android {
         applicationId 'com.arcxya.doudizhu'
         minSdk 26
         targetSdk 35
-        versionCode (project.findProperty('ddzVersionCode') ?: applicationVersionCode).toInteger()
+        versionCode resolvedVersionCode
         versionName '3.6.0'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
