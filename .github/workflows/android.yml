@@ -86,7 +86,27 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/find-previous-official.py
+      - name: Select permanent signing route
+        id: signing-mode
+        env:
+          DDZ_KEYSTORE_BASE64: ${{ secrets.DDZ_KEYSTORE_BASE64 }}
+          DDZ_STORE_PASSWORD: ${{ secrets.DDZ_STORE_PASSWORD }}
+          DDZ_KEY_ALIAS: ${{ secrets.DDZ_KEY_ALIAS }}
+          DDZ_KEY_PASSWORD: ${{ secrets.DDZ_KEY_PASSWORD }}
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          names = ('DDZ_KEYSTORE_BASE64', 'DDZ_STORE_PASSWORD', 'DDZ_KEY_ALIAS', 'DDZ_KEY_PASSWORD')
+          supplied = [name for name in names if os.environ.get(name, '').strip()]
+          if supplied and len(supplied) != len(names):
+              raise SystemExit('Incomplete signing Secrets; configure all four or use local signing with none.')
+          mode = 'secrets' if supplied else 'offline'
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'mode={mode}\n')
+          print('Permanent signing route: ' + mode)
+          PYTHON
       - name: Restore and verify permanent signing identity
+        if: steps.signing-mode.outputs.mode == 'secrets'
         env:
           DDZ_KEYSTORE_BASE64: ${{ secrets.DDZ_KEYSTORE_BASE64 }}
           DDZ_STORE_PASSWORD: ${{ secrets.DDZ_STORE_PASSWORD }}
@@ -94,20 +114,31 @@ jobs:
           DDZ_KEY_PASSWORD: ${{ secrets.DDZ_KEY_PASSWORD }}
         run: python3 scripts/prepare-release-signing.py
       - name: Build and inspect signed non-debuggable Release APK
+        if: steps.signing-mode.outputs.mode == 'secrets'
         env:
           DDZ_STORE_PASSWORD: ${{ secrets.DDZ_STORE_PASSWORD }}
           DDZ_KEY_ALIAS: ${{ secrets.DDZ_KEY_ALIAS }}
           DDZ_KEY_PASSWORD: ${{ secrets.DDZ_KEY_PASSWORD }}
         run: python3 scripts/build-official-release.py
+      - name: Prepare unsigned Release for local permanent signing
+        if: steps.signing-mode.outputs.mode == 'offline'
+        run: python3 scripts/build-unsigned-release.py
+      - uses: actions/upload-artifact@v4
+        if: steps.signing-mode.outputs.mode == 'offline' && success()
+        with:
+          name: unsigned-release-for-local-signing
+          path: local-signing-input/
       - name: Remove private key immediately after signing
         if: always()
         run: rm -rf "$RUNNER_TEMP/ddz-release-signing"
       - name: Enable hardware virtualization
+        if: steps.signing-mode.outputs.mode == 'secrets'
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Verify real Release upgrade preserves local data
+        if: steps.signing-mode.outputs.mode == 'secrets'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -118,11 +149,12 @@ jobs:
           emulator-options: -no-window -gpu swiftshader -noaudio -no-boot-anim -camera-back none
           script: bash scripts/check-release-upgrade.sh "$(cat release-upgrade-baseline.txt)" app/build/outputs/apk/release/app-release.apk
       - name: Publish verified stable Release
+        if: steps.signing-mode.outputs.mode == 'secrets'
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/publish-official-release.py
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && steps.signing-mode.outputs.mode == 'secrets'
         with:
           name: official-apk-and-upgrade-results
           path: |

@@ -3,8 +3,11 @@ def applicationVersionCode = 19
 def resolvedVersionCode = (project.findProperty('ddzVersionCode') ?: applicationVersionCode).toString().toInteger()
 def releaseSecretNames = ['DDZ_KEYSTORE_PATH', 'DDZ_STORE_PASSWORD', 'DDZ_KEY_ALIAS', 'DDZ_KEY_PASSWORD']
 def hasReleaseSigning = releaseSecretNames.every { System.getenv(it)?.trim() }
+// Explicit preparation mode produces an unsigned transport artifact only.
+// Publishing still requires the pinned permanent certificate and a real upgrade test.
+def prepareUnsignedRelease = project.findProperty('ddzPrepareUnsignedRelease') == 'true'
 def requireReleaseSigning = {
-    if (!hasReleaseSigning) throw new GradleException('Release requires permanent signing credentials. Debug signing and unsigned Release APKs are not allowed.')
+    if (!hasReleaseSigning && !prepareUnsignedRelease) throw new GradleException('Release requires permanent signing credentials. Use explicit unsigned preparation only for offline signing; unsigned APKs cannot be published.')
 }
 if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }) requireReleaseSigning()
 gradle.taskGraph.whenReady { graph ->
@@ -38,7 +41,7 @@ android {
         release {
             minifyEnabled false
             debuggable false
-            if (hasReleaseSigning) signingConfig signingConfigs.permanentRelease
+            if (hasReleaseSigning && !prepareUnsignedRelease) signingConfig signingConfigs.permanentRelease
         }
     }
     kotlinOptions { jvmTarget = '17' }
