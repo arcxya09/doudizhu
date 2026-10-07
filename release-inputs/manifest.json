@@ -1,0 +1,9 @@
+{
+  "source_sha": "085f8ad174b6a1e02cb42995b7c9d87442d1a385",
+  "version_name": "3.6.0",
+  "version_code": 19,
+  "package_name": "com.arcxya.doudizhu",
+  "certificate_sha256": "59ed2222d17c6085fe3699d80ca7434f8350882064a8732ed8f5ec232d7d86a3",
+  "candidate_sha256": "6d863a2e78dd139af537041d52cae74a80876916b8bb6913fce5930b9e9407ea",
+  "baseline_sha256": "13a8836cd8abca79c993d3e264acc49d6e8499c1d832b6614f773d5346aa7224"
+}
