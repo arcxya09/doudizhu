@@ -83,7 +83,7 @@ fi
 adb install "$baseline_apk"
 
 package_uid() {
-  adb shell dumpsys package "$package" | tr -d '\r' | python3 -c 'import re,sys; m=re.search(r"^\s*userId=(\d+)",sys.stdin.read(),re.M); print(m[1]) if m else sys.exit("Package UID not found")'
+  adb shell cmd package list packages -U --user 0 "$package" | tr -d '\r' | python3 -c 'import re,sys; pattern=r"^package:"+re.escape(sys.argv[1])+r"\s+uid:(\d+)\s*$"; matches=re.findall(pattern,sys.stdin.read(),re.M); print(matches[0]) if len(matches)==1 else sys.exit("Expected exactly one UID for the installed package")' "$package"
 }
 installed_code() {
   adb shell dumpsys package "$package" | tr -d '\r' | python3 -c 'import re,sys; m=re.search(r"\bversionCode=(\d+)",sys.stdin.read()); print(m[1]) if m else sys.exit("Installed versionCode not found")'
