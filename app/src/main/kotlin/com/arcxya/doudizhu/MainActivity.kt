@@ -19,6 +19,14 @@ import android.widget.*
 import java.io.*
 
 private const val SNAPSHOT_FORMAT=1
+// Deal animation, timed against the 3944 ms deal cue: 51 cards round robin, then the three bottom
+// cards. One card leaves every DEAL_GAP and needs DEAL_FLIGHT to arrive, so about six are in the air.
+private const val DEAL_START=300f
+private const val DEAL_GAP=50f
+private const val DEAL_FLIGHT=340f
+/** One card in flight. Hand and bottom cards translate from the deck back to their own slot; cards in
+ *  the transient layer are positioned absolutely because their seat never draws a hand. */
+private class DealFlight(val launch:Float,val duration:Float,val fromX:Float,val fromY:Float,val targetX:Float,val targetY:Float,val view:View,val inLayer:Boolean,val player:Int)
 // Frozen legacy record written by builds up to v3.6.0. Its field list and serialVersionUID must not
 // change: the release upgrade check reads it and requires the file to stay byte-identical.
 internal data class SavedTable(val game:Game,val games:Int,val wins:Int,val score:Int):Serializable {
@@ -76,6 +84,12 @@ class MainActivity: Activity() {
     private var modal=false
     private var corrupt=false
     private var unreadable=false
+    private var dealing=false
+    private lateinit var dealLayer:DealLayer
+    private var dealAnimator:android.animation.ValueAnimator?=null
+    private val dealFlights=mutableListOf<DealFlight>()
+    private val handFlights=mutableListOf<DealFlight>()
+    private val bottomFlights=mutableListOf<DealFlight>()
     private var nextLevel=1
     private var speed=1800L
     private var games=0;private var wins=0;private var score=0
@@ -185,6 +199,10 @@ class MainActivity: Activity() {
         table.place(help,.893f,.938f,.077f,.055f)
         effectBanner=label("",28f,0xffffd35b.toInt()).apply{alpha=0f;setTypeface(null,Typeface.BOLD_ITALIC);setShadowLayer(dp(2).toFloat(),0f,dp(2).toFloat(),0xff564222.toInt())}
         table.place(effectBanner,.32f,.345f,.36f,.09f)
+        // Added last so cards dealt to the seats draw above the table. It only takes touches while a
+        // deal is running, where a tap skips the rest of it.
+        dealLayer=DealLayer(this).apply{contentDescription="正在发牌，点击跳过";setOnClickListener{endDeal()};isClickable=false}
+        table.place(dealLayer,0f,0f,1f,1f)
     }
     private fun addAction(label:String,primary:Boolean=false,enabled:Boolean=true,action:()->Unit):Button {
         val b=button(label,primary,action);buttonEnabled(b,enabled)
@@ -208,18 +226,21 @@ class MainActivity: Activity() {
             badges[p-1].text=role(p).ifEmpty{"电脑"}
             difficultyLabels[p-1].text=levels[game.level]
             turnClocks[p-1].visibility=if(game.turn==p && game.phase in listOf("bid","play"))View.VISIBLE else View.INVISIBLE
-            counts[p-1].text=game.hands[p].size.toString();counts[p-1].contentDescription="${names[p]}剩余${game.hands[p].size}张牌"
+            val shown=if(dealing)0 else game.hands[p].size
+            counts[p-1].text=shown.toString();counts[p-1].contentDescription="${names[p]}剩余${shown}张牌"
             cues[p-1].visibility=if(game.turn==p && game.phase!="over")View.INVISIBLE else View.VISIBLE
             cues[p-1].text=if(game.status[p] in listOf("不出","不叫")||game.phase=="bid")game.status[p].replace("等待叫分","") else ""
         }
         counter.show(game)
         counter.visibility=if(game.landlord<0)View.INVISIBLE else View.VISIBLE
-        bottom.visibility=counter.visibility
+        // The three bottom cards are dealt face down and stay visible for the deal, then follow the
+        // existing rule of staying hidden until the landlord is known.
+        bottom.visibility=if(dealing)View.VISIBLE else counter.visibility
         for(p in 0..2){seatCards[p].visibility=if(game.turn==p && game.phase!="over")View.INVISIBLE else View.VISIBLE;people[p].active=game.turn==p&&game.phase!="over";seatCards[p].show(displayCards(seatMoves[p]));seatCards[p].contentDescription="${names[p]}出牌："+seatMoves[p].joinToString("、"){Rules.cardName(it)}}
         bottom.show(if(game.landlord<0)listOf(54,54,54) else game.bottom.asReversed())
-        notice.text=when(game.phase){"bid"->if(game.turn==0)"轮到你叫地主" else "${names[game.turn]}正在叫分";"redeal"->"无人叫分，重新发牌";"over"->if(game.delta>0)"本局获胜" else "本局结束";else->if(game.turn==0)"轮到你出牌" else "${names[game.turn]}正在出牌"}
+        notice.text=if(dealing)"正在发牌…" else when(game.phase){"bid"->if(game.turn==0)"轮到你叫地主" else "${names[game.turn]}正在叫分";"redeal"->"无人叫分，重新发牌";"over"->if(game.delta>0)"本局获胜" else "本局结束";else->if(game.turn==0)"轮到你出牌" else "${names[game.turn]}正在出牌"}
         notice.announceForAccessibility(notice.text)
-        selfName.text="${role(0).ifEmpty{"我"}} · ${game.hands[0].size}张"
+        selfName.text=if(dealing)"我 · 0张" else "${role(0).ifEmpty{"我"}} · ${game.hands[0].size}张"
         info.text=score.toString();record.text="$wins 胜 / $games 局";multiple.text="×${game.multiplier} 倍"
         selected.retainAll(game.hands[0].toSet());hand.removeAllViews()
         displayCards(game.hands[0]).forEach { card->
@@ -229,6 +250,7 @@ class MainActivity: Activity() {
         }
         actions.removeAllViews();playButton=null
         when {
+            dealing->{}
             autoPlay&&game.phase!="over"->{addAction("取消托管",true){autoPlay=false;render();schedule()}}
             game.phase=="over"-> {addAction("再来一局",true){fresh()};addAction("查看结算"){showResult()}}
             game.phase=="bid"&&game.turn==0->{addAction("叫地主",true){humanBid(3)};addClock();addAction("不叫",false){humanBid(0)}}
@@ -278,7 +300,94 @@ class MainActivity: Activity() {
         if(newTrick||game.last==null)seatMoves=Array(3){emptyList()}
         seatMoves[actor]=cards.toList()
     }
-    private fun fresh(){handler.removeCallbacksAndMessages(null);seatMoves=Array(3){emptyList()};game=Game.create(nextLevel);selected.clear();persist();render();audio.requestDeal();schedule()}
+    private fun fresh(){
+        handler.removeCallbacksAndMessages(null);seatMoves=Array(3){emptyList()}
+        game=Game.create(nextLevel);selected.clear();persist()
+        dealAnimator?.cancel();dealAnimator=null
+        dealing=true;render();audio.requestDeal();startDeal()
+    }
+    /** Builds the timeline from the laid-out views, so every card lands exactly where it comes to rest. */
+    private fun startDeal(){
+        hand.post{
+            if(!dealing||isFinishing||isDestroyed)return@post
+            dealLayer.removeAllViews();dealFlights.clear();handFlights.clear();bottomFlights.clear()
+            val tableW=table.width.toFloat();val tableH=table.height.toFloat()
+            val cardH=hand.getChildAt(0)?.height?:0
+            if(tableW<=0f||tableH<=0f||cardH<=0){endDeal();return@post}
+            val deckX=tableW*.5f;val deckY=tableH*.30f
+            val handDeckX=deckX-hand.left;val handDeckY=deckY-hand.top
+            val bottomDeckX=deckX-bottom.left;val bottomDeckY=deckY-bottom.top
+            dealLayer.cardWidth=(cardH*CardFace.WIDTH_HEIGHT_RATIO).toInt().coerceAtLeast(1);dealLayer.cardHeight=cardH
+            val seatX=floatArrayOf(0f,tableW*.15f,tableW*.85f);val seatY=floatArrayOf(0f,tableH*.45f,tableH*.45f)
+            var slot=0
+            for(round in 0 until 17)for(p in 0..2){
+                val launch=DEAL_START+slot*DEAL_GAP;slot++
+                if(p==0){
+                    val v=hand.getChildAt(round)?:continue
+                    DealFlight(launch,DEAL_FLIGHT,handDeckX,handDeckY,v.left.toFloat(),v.top.toFloat(),v,false,0).also{dealFlights.add(it);handFlights.add(it)}
+                }else{
+                    val back=CardFace(this,art,54);dealLayer.addView(back)
+                    dealFlights.add(DealFlight(launch,DEAL_FLIGHT,deckX,deckY,seatX[p],seatY[p],back,true,p))
+                }
+            }
+            for(i in 0 until Math.min(3,bottom.childCount)){
+                val v=bottom.getChildAt(i)
+                DealFlight(DEAL_START+slot*DEAL_GAP,DEAL_FLIGHT,bottomDeckX,bottomDeckY,v.left.toFloat(),v.top.toFloat(),v,false,-1).also{dealFlights.add(it);bottomFlights.add(it)};slot++
+            }
+            dealLayer.isClickable=true
+            applyDeal(0f)
+            val total=DEAL_START+slot*DEAL_GAP+DEAL_FLIGHT
+            dealAnimator=android.animation.ValueAnimator.ofFloat(0f,total).apply{
+                duration=total.toLong();interpolator=android.view.animation.LinearInterpolator()
+                addUpdateListener{applyDeal(it.animatedValue as Float)}
+                addListener(object:android.animation.AnimatorListenerAdapter(){
+                    override fun onAnimationEnd(animation:android.animation.Animator){endDeal()}
+                })
+                start()
+            }
+        }
+    }
+    /** One timeline drives every card, so skipping lands them all in their final positions at once. */
+    private fun applyDeal(t:Float){
+        val arc=table.height*.06f
+        for(f in dealFlights){
+            val moving=t>=f.launch
+            val p=if(moving)((t-f.launch)/f.duration).coerceIn(0f,1f) else 0f
+            if(!moving){
+                f.view.alpha=0f;f.view.scaleX=.82f;f.view.scaleY=.82f
+                if(f.inLayer){f.view.x=f.fromX;f.view.y=f.fromY}
+                else{f.view.translationX=f.fromX-f.targetX;f.view.translationY=f.fromY-f.targetY}
+                continue
+            }
+            val eased=p*p*(3-2*p);val bow=(-arc*Math.sin(Math.PI*p)).toFloat();val scale=.82f+.18f*eased
+            f.view.alpha=(p/.4f).coerceAtMost(1f);f.view.scaleX=scale;f.view.scaleY=scale
+            if(f.inLayer){f.view.x=f.fromX+(f.targetX-f.fromX)*eased;f.view.y=f.fromY+(f.targetY-f.fromY)*eased+bow}
+            else{f.view.translationX=(f.fromX-f.targetX)*(1-eased);f.view.translationY=(f.fromY-f.targetY)*(1-eased)+bow}
+        }
+        applyStrip(handFlights,t,hand.stride)
+        applyStrip(bottomFlights,t,bottom.cardStride())
+        for(p in 1..2)counts[p-1].text=dealFlights.count{f->f.player==p&&t>=f.launch+f.duration}.toString()
+        selfName.text="我 · ${dealFlights.count{f->f.player==0&&t>=f.launch+f.duration}}张"
+    }
+    /** A row card normally draws its rank inside the strip its right neighbour leaves free, which
+     *  reads as a blank white body once the card is airborne. While a card is uncovered it draws its
+     *  whole face instead, and returns to the strip the moment the next card covers it. */
+    private fun applyStrip(flights:List<DealFlight>,t:Float,stride:Float){
+        for(i in flights.indices){
+            val face=flights[i].view as? CardFace?:continue
+            val settled=i==flights.size-1||t>=flights[i+1].launch+flights[i+1].duration
+            val want=if(settled)stride else 0f
+            if(face.indexWidth!=want){face.indexWidth=want;face.showBody=settled;face.invalidate()}
+        }
+    }
+    private fun endDeal(){
+        if(!dealing)return
+        dealing=false
+        dealAnimator?.let{it.removeAllUpdateListeners();it.cancel()};dealAnimator=null
+        for(f in dealFlights){f.view.alpha=1f;f.view.scaleX=1f;f.view.scaleY=1f;f.view.translationX=0f;f.view.translationY=0f}
+        dealFlights.clear();handFlights.clear();bottomFlights.clear();dealLayer.removeAllViews();dealLayer.isClickable=false
+        render();schedule()
+    }
     private fun showResult(){
         if(modal)return;modal=true;handler.removeCallbacksAndMessages(null)
         val message="${if(game.winner==game.landlord)"地主" else "农民"}获胜${if(game.spring)" · 春天 / 反春天" else ""}\n${game.multiplier} 倍 · 本局 ${if(game.delta>0)"+" else ""}${game.delta} 分\n\n"+(1..2).joinToString("\n"){p->"${names[p]}剩余："+game.hands[p].joinToString(" "){Rules.cardName(it)}}
@@ -374,8 +483,8 @@ class MainActivity: Activity() {
         try{out=file.startWrite();val stream=ObjectOutputStream(out);stream.writeObject(TableSnapshot(SNAPSHOT_FORMAT,game));stream.flush();file.finishWrite(out)}catch(_:IOException){file.failWrite(out)}
     }
     override fun onResume(){super.onResume();running=true;if(::audio.isInitialized)audio.resume();if(::game.isInitialized)schedule()}
-    override fun onPause(){running=false;handler.removeCallbacksAndMessages(null);if(::audio.isInitialized)audio.pause();if(::game.isInitialized)persist();super.onPause()}
-    override fun onDestroy(){handler.removeCallbacksAndMessages(null);if(::audio.isInitialized)audio.release();super.onDestroy()}
+    override fun onPause(){running=false;handler.removeCallbacksAndMessages(null);if(dealing)endDeal();if(::audio.isInitialized)audio.pause();if(::game.isInitialized)persist();super.onPause()}
+    override fun onDestroy(){handler.removeCallbacksAndMessages(null);dealAnimator?.cancel();dealAnimator=null;if(::audio.isInitialized)audio.release();super.onDestroy()}
     private fun handleBack(){
         if(modal)return;modal=true;handler.removeCallbacksAndMessages(null)
         AlertDialog.Builder(this).setTitle("暂时离开牌桌？").setMessage("当前牌局已经保存，下次打开继续。").setPositiveButton("离开"){_,_->finish()}.setNegativeButton("继续玩",null).create().apply{setOnDismissListener{modal=false;schedule()};show()}
@@ -409,4 +518,9 @@ class MainActivity: Activity() {
         playCards(cards);render()
     }
     internal fun testStart(level:Int=1){handler.removeCallbacksAndMessages(null);seatMoves=Array(3){emptyList()};autoPlay=false;game=Game.create(level,kotlin.random.Random(42));game.turn=0;game.bid(3);selected.clear();persist();render();running=false}
+    /** Starts a real deal so a device test can observe both the running and the finished state. */
+    internal fun testDeal():Boolean{handler.removeCallbacksAndMessages(null);autoPlay=false;fresh();running=false;return dealing}
+    internal fun testDealing():Boolean=dealing
+    internal fun testDealLayer():DealLayer=dealLayer
+    internal fun testBottomStrip():CardStrip=bottom
 }

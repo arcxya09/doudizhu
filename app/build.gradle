@@ -1,5 +1,5 @@
 plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
-def applicationVersionCode = 20
+def applicationVersionCode = 21
 def resolvedVersionCode = (project.findProperty('ddzVersionCode') ?: applicationVersionCode).toString().toInteger()
 def releaseSecretNames = ['DDZ_KEYSTORE_PATH', 'DDZ_STORE_PASSWORD', 'DDZ_KEY_ALIAS', 'DDZ_KEY_PASSWORD']
 def hasReleaseSigning = releaseSecretNames.every { System.getenv(it)?.trim() }
@@ -21,7 +21,7 @@ android {
         minSdk 26
         targetSdk 35
         versionCode resolvedVersionCode
-        versionName '3.6.1'
+        versionName '3.6.2'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     signingConfigs {

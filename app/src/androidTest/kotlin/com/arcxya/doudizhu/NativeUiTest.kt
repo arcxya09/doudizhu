@@ -582,4 +582,56 @@ class NativeUiTest {
         inst.runOnMainSync { activity.finish() }
         device.unfreezeRotation()
     }
+
+    /** A real deal must move cards in, then leave a complete resting hand and a usable action row. */
+    @Test fun nativeDealAnimationCompletes() {
+        val inst = InstrumentationRegistry.getInstrumentation()
+        val context = inst.targetContext
+        val device = UiDevice.getInstance(inst)
+        device.wakeUp()
+        device.setOrientationNatural()
+        val activity = inst.startActivitySync(Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
+        device.wait(Until.hasObject(By.pkg(context.packageName)), 10000)
+        device.findObject(By.text("GOT IT"))?.click()
+        device.findObject(By.text("知道了"))?.click()
+        await("Game must be foreground and have window focus") {
+            device.currentPackageName == context.packageName && onMain(inst) { activity.hasWindowFocus() }
+        }
+        val dir = File(context.getExternalFilesDir(null), "screenshots").apply { mkdirs() }
+        onMain(inst) { activity.testDeal() }
+        inst.waitForIdleSync()
+        // With animations disabled the timeline completes at once, so only the resting state is
+        // asserted there; a real animation is additionally checked while it is still running.
+        if (onMain(inst) { activity.testDealing() }) {
+            val offset = onMain(inst) {
+                val card = activity.hand.getChildAt(activity.hand.childCount - 1)
+                abs(card.translationX) + abs(card.translationY)
+            }
+            assertTrue("Cards must start away from their own slot", offset > 0f)
+            assertEquals("No actions while dealing", 0, onMain(inst) { activity.actions.childCount })
+            assertEquals("Bottom cards are dealt face down", 3, onMain(inst) { activity.testBottomStrip().childCount })
+            assertEquals("Bottom cards show while dealing", View.VISIBLE, onMain(inst) { activity.testBottomStrip().visibility })
+            // Let the cards get airborne before capturing, so the shot shows the flight itself.
+            SystemClock.sleep(1200)
+            device.takeScreenshot(File(dir, "native-dealing.png"))
+        }
+        await("Deal finishes and settles the whole hand", 15000) {
+            onMain(inst) { !activity.testDealing() && activity.hand.childCount == 17 }
+        }
+        // The row only appears when the deal leaves the player to act; otherwise a seat bids first.
+        assertEquals("Action row matches whose turn it is",
+            onMain(inst) { activity.game.turn == 0 },
+            onMain(inst) { activity.actions.childCount } > 0)
+        assertTrue("Every dealt card rests in its own slot", onMain(inst) {
+            (0 until activity.hand.childCount).all {
+                val card = activity.hand.getChildAt(it)
+                card.translationX == 0f && card.translationY == 0f && card.alpha == 1f && card.scaleX == 1f
+            }
+        })
+        assertTrue("Transient deal cards are removed", onMain(inst) { activity.testDealLayer().childCount } == 0)
+        assertEquals("Bottom cards hide again for bidding", View.INVISIBLE, onMain(inst) { activity.testBottomStrip().visibility })
+        inst.runOnMainSync { activity.finish() }
+        device.unfreezeRotation()
+    }
 }

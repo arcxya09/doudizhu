@@ -96,10 +96,13 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
 }
 /** One overlapping row. Touch selection follows the exposed index strips, in draw order. */
 class HandLayout(context:Context):ViewGroup(context) {
-    private var stride=0f;private var start=0f
+    /** Exposed so the deal animation can restore the overlap strip once a card is covered again. */
+    internal var stride=0f;private var start=0f
     private var downX=0f;private var downIndex=-1;private var lastIndex=-1;private var dragging=false
     private var before=booleanArrayOf();private var selectRange=true
     private val slop=android.view.ViewConfiguration.get(context).scaledTouchSlop
+    // Deal animation flies each card in from the deck, so it must draw outside this row's bounds.
+    init{clipChildren=false}
     override fun onMeasure(ws:Int,hs:Int){
         val w=MeasureSpec.getSize(ws);val h=MeasureSpec.getSize(hs);setMeasuredDimension(w,h)
         val d=resources.displayMetrics.density
@@ -159,6 +162,10 @@ class HandLayout(context:Context):ViewGroup(context) {
 /** Overlap to keep played cards large; very long combinations wrap before indexes become cramped. */
 class CardStrip(context:Context,private val art:CardArt,private val maxColumns:Int=Int.MAX_VALUE,private val align:Int=Gravity.CENTER_HORIZONTAL):ViewGroup(context) {
     private var columns=1;private var rowHeight=1;private var cardWidth=1;private var step=0f
+    // The bottom cards are dealt in from the deck, so they must draw outside this strip's bounds.
+    init{clipChildren=false}
+    /** The width every card exposes to its right neighbour; zero means the card shows its whole face. */
+    internal fun cardStride()=if(columns==1)cardWidth*.42f else step
     fun show(cards:List<Int>){removeAllViews();cards.forEach{addView(CardFace(context,art,it))};requestLayout()}
     override fun onMeasure(ws:Int,hs:Int){
         val w=MeasureSpec.getSize(ws);val h=MeasureSpec.getSize(hs);setMeasuredDimension(w,h)
@@ -174,6 +181,22 @@ class CardStrip(context:Context,private val art:CardArt,private val maxColumns:I
         for(i in 0 until childCount){val row=i/columns;val col=i%columns;val count=min(columns,childCount-row*columns);val spare=width-cardWidth-step*(count-1)
             val start=when(align and Gravity.HORIZONTAL_GRAVITY_MASK){Gravity.LEFT->0f;Gravity.RIGHT->spare;else->spare/2}
             val x=(start+col*step).toInt();getChildAt(i).layout(x,row*rowHeight,x+cardWidth,(row+1)*rowHeight)}
+    }
+}
+
+/** Transient layer for cards flying to seats that never draw their own hand. Children are laid out at
+ *  the origin and positioned with x/y, so one timeline can move them with plain translation. */
+class DealLayer(context:Context):ViewGroup(context){
+    var cardWidth=1;var cardHeight=1
+    init{clipChildren=false}
+    override fun onMeasure(ws:Int,hs:Int){
+        setMeasuredDimension(MeasureSpec.getSize(ws),MeasureSpec.getSize(hs))
+        val w=MeasureSpec.makeMeasureSpec(cardWidth.coerceAtLeast(1),MeasureSpec.EXACTLY)
+        val h=MeasureSpec.makeMeasureSpec(cardHeight.coerceAtLeast(1),MeasureSpec.EXACTLY)
+        for(i in 0 until childCount)getChildAt(i).measure(w,h)
+    }
+    override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){
+        for(i in 0 until childCount)getChildAt(i).layout(0,0,cardWidth,cardHeight)
     }
 }
 
