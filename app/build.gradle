@@ -56,3 +56,8 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
     androidTestImplementation 'androidx.test.uiautomator:uiautomator:2.3.0'
 }
+// ReleaseProcessTest reads the upgrade check by path, so editing that script has to re-run the tests;
+// without this a rename slips through locally and only fails much later in the signed release job.
+tasks.withType(Test).configureEach {
+    inputs.file(rootProject.file('scripts/check-release-upgrade.sh')).withPathSensitivity(PathSensitivity.RELATIVE).optional()
+}

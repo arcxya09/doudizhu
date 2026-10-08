@@ -132,10 +132,14 @@ wait_for_human_turn() {
        adb pull /sdcard/ddz-release-upgrade-ui.xml "$xml" >/dev/null 2>&1; then
       if python3 - "$xml" "$package" <<'PY'
 import sys, xml.etree.ElementTree as ET
+# Captions of the action row, i.e. the buttons only the human can press. Keep this in step with the
+# labels built in MainActivity's render(): an older baseline still shows 叫地主 while a current build
+# offers the three scores instead, and the check must recognise both.
+HUMAN_ACTIONS = ("叫地主", "不叫", "1分", "2分", "3分", "不出", "提示")
 root = ET.parse(sys.argv[1]).getroot()
 for node in root.iter("node"):
     if (node.get("package") == sys.argv[2] and node.get("enabled") == "true"
-            and node.get("clickable") == "true" and node.get("text") in ("叫地主", "提示")):
+            and node.get("clickable") == "true" and node.get("text") in HUMAN_ACTIONS):
         print(node.get("text"))
         break
 else:
