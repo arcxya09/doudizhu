@@ -152,7 +152,7 @@ PY
 }
 
 data_hashes() {
-  adb shell "sha256sum '$data_dir/files/native-table-v2' '$data_dir/shared_prefs/settings.xml' '$data_dir/files/upgrade-marker.txt' '$data_dir/files/local-music/selection.json' '$data_dir/files/local-music/upgrade-test.audio'" | tr -d '\r'
+  adb shell "sha256sum '$data_dir/$snapshot' '$data_dir/shared_prefs/settings.xml' '$data_dir/files/upgrade-marker.txt' '$data_dir/files/local-music/selection.json' '$data_dir/files/local-music/upgrade-test.audio'" | tr -d '\r'
 }
 pause_and_stop() {
   adb shell input keyevent KEYCODE_HOME
@@ -174,7 +174,11 @@ fi
 baseline_action=$(wait_for_human_turn "$work_dir/baseline-ui.xml")
 # Human turns have no timer. Home cancels pending AI callbacks and persists the table.
 pause_and_stop
-adb shell test -s "$data_dir/files/native-table-v2"
+# A baseline build writes its own snapshot format. A later build migrates to a newer file and must
+# leave the baseline's file untouched, so hash whichever file this baseline actually produced.
+snapshot=files/native-table-v2
+if adb shell test -s "$data_dir/files/native-table-v3"; then snapshot=files/native-table-v3; fi
+adb shell test -s "$data_dir/$snapshot"
 data_hashes > "$work_dir/before.sha256"
 if [ "$(wc -l < "$work_dir/before.sha256")" -ne 5 ]; then
   echo "All five persistent data fixtures must exist before upgrading." >&2
