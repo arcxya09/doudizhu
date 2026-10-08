@@ -132,15 +132,20 @@ wait_for_human_turn() {
        adb pull /sdcard/ddz-release-upgrade-ui.xml "$xml" >/dev/null 2>&1; then
       if python3 - "$xml" "$package" <<'PY'
 import sys, xml.etree.ElementTree as ET
-# Captions of the action row, i.e. the buttons only the human can press. Keep this in step with the
-# labels built in MainActivity's render(): an older baseline still shows 叫地主 while a current build
-# offers the three scores instead, and the check must recognise both.
-HUMAN_ACTIONS = ("叫地主", "不叫", "1分", "2分", "3分", "不出", "提示")
+# Captions of the action row, i.e. the buttons only the human can press, mapped to the phase they
+# belong to. The two builds are compared by phase rather than by caption because a newer build may
+# rename a button: 叫地主 became the three score calls, and comparing labels then failed a healthy
+# upgrade. Keep the captions in step with the action row built in MainActivity's render(); an older
+# baseline still shows 叫地主 while a current build offers the three scores instead.
+HUMAN_ACTIONS = {
+    "叫地主": "bid", "不叫": "bid", "1分": "bid", "2分": "bid", "3分": "bid",
+    "提示": "play", "无可出": "play", "不出": "play", "出牌": "play",
+}
 root = ET.parse(sys.argv[1]).getroot()
 for node in root.iter("node"):
     if (node.get("package") == sys.argv[2] and node.get("enabled") == "true"
             and node.get("clickable") == "true" and node.get("text") in HUMAN_ACTIONS):
-        print(node.get("text"))
+        print(HUMAN_ACTIONS[node.get("text")])
         break
 else:
     raise SystemExit(1)
@@ -175,7 +180,7 @@ if ! grep -q '^Status: ok' "$work_dir/baseline-start.txt"; then
   cat "$work_dir/baseline-start.txt"
   exit 1
 fi
-baseline_action=$(wait_for_human_turn "$work_dir/baseline-ui.xml")
+baseline_turn=$(wait_for_human_turn "$work_dir/baseline-ui.xml")
 # Human turns have no timer. Home cancels pending AI callbacks and persists the table.
 pause_and_stop
 # A baseline build writes its own snapshot format. A later build migrates to a newer file and must
@@ -203,9 +208,9 @@ if ! grep -q '^Status: ok' release-results/release-upgrade-launch.txt; then
   cat release-results/release-upgrade-launch.txt
   exit 1
 fi
-candidate_action=$(wait_for_human_turn "$work_dir/candidate-ui.xml")
-if [ "$candidate_action" != "$baseline_action" ]; then
-  echo "Candidate did not restore the saved human turn." >&2
+candidate_turn=$(wait_for_human_turn "$work_dir/candidate-ui.xml")
+if [ "$candidate_turn" != "$baseline_turn" ]; then
+  echo "Candidate restored the $candidate_turn turn, not the baseline's $baseline_turn turn." >&2
   exit 1
 fi
 if [ -z "$(adb shell pidof "$package" | tr -d '\r')" ]; then

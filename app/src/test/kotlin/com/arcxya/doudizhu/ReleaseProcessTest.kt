@@ -11,9 +11,10 @@ class ReleaseProcessTest {
     private fun upgradeCheck()=File("../scripts/check-release-upgrade.sh").readText()
 
     @Test fun releaseProbeKnowsEveryHumanActionCaption(){
-        val declared=Regex("HUMAN_ACTIONS = \\(([^)]*)\\)").find(upgradeCheck())?.groupValues?.get(1)
+        val declared=Regex("HUMAN_ACTIONS = \\{([^}]*)\\}").find(upgradeCheck())?.groupValues?.get(1)
         assertNotNull("the release check declares the captions it reads as a human turn",declared)
-        val known=declared!!.split(",").map{it.trim().trim('"')}.filter{it.isNotEmpty()}.toSet()
+        val known=Regex("\"([^\"]+)\"").findAll(declared!!).map{it.groupValues[1]}.toSet()
+        assertTrue("the check must cover both the bidding and the playing turn","bid" in declared && "play" in declared)
         // The action row only: the other buttons on the table are outside this slice.
         val block=activitySource().substringAfter("actions.removeAllViews()").substringBefore("refreshSelection()")
         // Buttons that cannot mark a human turn: the ones offered whatever the position is, plus the
