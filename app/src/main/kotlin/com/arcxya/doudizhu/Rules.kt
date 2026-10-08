@@ -84,13 +84,45 @@ object Rules {
         }
         return out.values.toList()
     }
-    private fun cost(hand: List<Int>): Double {
-        val g = groups(hand)
-        var cost = g.entries.sumOf { (r,cs) -> (when(cs.size) { 1 -> 1.5; 2 -> 1.15; 3 -> 1.0; else -> .6 }) - if(r >= 15) .35 else 0.0 }
-        var r = 3
-        while (r <= 10) { var len = 0; while (r+len <= 14 && g.containsKey(r+len)) len++; if (len >= 5) { cost -= len*.55; r += len }; r++ }
-        return cost
+    /** Longest run of consecutive ranks that each hold at least `need` cards, if one is playable. */
+    private fun longestRun(g: Map<Int,Int>, need: Int): List<Int>? {
+        val least = when (need) { 1 -> 5; 2 -> 3; else -> 2 }
+        var best: List<Int>? = null
+        var start = 3
+        while (start <= 14) {
+            if ((g[start] ?: 0) < need) { start++; continue }
+            var end = start
+            while (end < 14 && (g[end + 1] ?: 0) >= need) end++
+            val run = (start..end).toList()
+            if (run.size >= least && run.size > (best?.size ?: 0)) best = run
+            start = end + 1
+        }
+        return best
     }
+    /** Empties a hand by repeatedly taking the longest run of each shape, then counting what is left. */
+    private fun decompose(counts: Map<Int,Int>, order: IntArray): Int {
+        val left = counts.toMutableMap(); var plays = 0
+        if (16 in left && 17 in left) { plays++; left.remove(16); left.remove(17) }
+        for (r in left.keys.toList()) if (left[r] == 4) { plays++; left.remove(r) }
+        for (need in order) while (true) {
+            val run = longestRun(left, need) ?: break
+            for (r in run) { val rest = left.getValue(r) - need; if (rest <= 0) left.remove(r) else left[r] = rest }
+            plays++
+        }
+        val triples = left.values.count { it == 3 }
+        val singles = left.values.count { it == 1 }
+        plays += triples + left.values.count { it == 2 } + singles
+        // A triple can carry one single, so that attachment is not a play of its own.
+        return plays - minOf(triples, singles)
+    }
+    /** How many plays the hand still needs. Taking the runs in a different order changes the count, so
+     *  a few sensible orders are tried and the cheapest kept. This replaces a per-rank weighting that
+     *  could not tell a five-card straight (one play) from five loose singles (five plays). */
+    fun handsLeft(hand: List<Int>): Int {
+        val counts = groups(hand).mapValues { it.value.size }
+        return DECOMPOSE_ORDERS.minOf { decompose(counts, it) }
+    }
+    private val DECOMPOSE_ORDERS = listOf(intArrayOf(3,1,2), intArrayOf(1,3,2), intArrayOf(2,1,3), intArrayOf(1,2,3))
     // AI receives only its own cards and public information; never opponents' cards.
     fun ai(hand: List<Int>, target: Move?, player: Int, landlord: Int, lastPlayer: Int, counts: List<Int>, level: Int, rng: Random = Random.Default): Move? {
         val ms = moves(hand,target); if (ms.isEmpty()) return null
@@ -102,16 +134,25 @@ object Rules {
             return (ordinary.ifEmpty { ms }).random(rng)
         }
         val danger = counts.indices.any { it != player && (player == landlord || it == landlord) && counts[it] <= 2 }
+        val next = (player+1)%3
+        // The teammate plays right after me and is nearly out: a small single lets them finish.
+        val feeding = target == null && player != landlord && next != landlord && counts[next] <= 2
         fun score(m: Move): Double {
-            val left = hand - m.cards.toSet(); var s = cost(left)*3 + m.key*.08
+            val left = hand - m.cards.toSet(); var s = handsLeft(left)*3.0 + m.key*.08
+            // Twos and jokers hold the lead, so spending one has to buy something.
+            s -= left.count { rank(it) >= 15 } * .9
             if (m.kind == Kind.BOMB || m.kind == Kind.ROCKET) s += if(target == null) 11 else 7
+            if (feeding) { if (m.kind == Kind.SINGLE) s += m.key*.9 else s += 6 }
             if (level == 2) {
                 val before = groups(hand); val after = groups(left)
                 for (r in before.keys) if (before[r]?.size == 4 && after[r] != null && after[r]!!.size < 4) s += 4
                 if (danger && target != null) s -= m.key*.45
-                if (danger && target == null && m.kind == Kind.SINGLE) s += 8
-                val next = (player+1)%3
-                if (target == null && player != landlord && next != landlord && counts[next] <= 2) s += m.key*.2
+                if (danger && target == null) {
+                    // Someone is about to win: a wide play they cannot answer keeps the lead, and of
+                    // the singles the highest is the hardest to beat. The two rank different kinds, so
+                    // only one applies per move.
+                    if (m.kind == Kind.SINGLE) s -= m.key*.6 else s -= m.cards.size*1.2
+                }
             }
             return s
         }

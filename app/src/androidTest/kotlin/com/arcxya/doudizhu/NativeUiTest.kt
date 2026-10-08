@@ -597,10 +597,25 @@ class NativeUiTest {
         captureGame(inst,device,activity,File(dir,"native-bidding.png"))
         assertEquals("Reference bidding fixture has seventeen cards", 17, onMain(inst) { activity.hand.childCount })
         onMain(inst){activity.testAudio().configure(true,true,60,55)}
-        await("Call-landlord voice ready"){onMain(inst){"bid" in activity.testAudio().testState().loadedCues}}
-        tap(inst,device,activity,"叫地主")
-        await("Call landlord from reference-layout button"){onMain(inst){activity.game.landlord==0 && activity.game.hands[0].size==20}}
-        assertEquals("Call-landlord button says call landlord instead of three points","bid",onMain(inst){activity.testAudio().testState().lastCue})
+        await("Score bid voices ready"){onMain(inst){"bid_3" in activity.testAudio().testState().loadedCues}}
+        // Before anyone calls, all three scores are on offer.
+        onMain(inst){
+            val scores=all(activity.window.decorView).filterIsInstance<Button>().filter{it.text.toString().endsWith("分")}
+            assertEquals("Every score is offered before any call",3,scores.size)
+            assertTrue("Every score is enabled before any call",scores.all{it.isEnabled})
+        }
+        // A call must beat the highest so far, so an equal or lower score greys out.
+        onMain(inst){
+            activity.game.highBid=2;activity.testRender()
+            assertFalse("A score at the current call greys out",all(activity.window.decorView).filterIsInstance<Button>().single{it.text=="2分"}.isEnabled)
+            assertFalse("A score below the current call greys out",all(activity.window.decorView).filterIsInstance<Button>().single{it.text=="1分"}.isEnabled)
+            assertTrue("A higher score stays available",all(activity.window.decorView).filterIsInstance<Button>().single{it.text=="3分"}.isEnabled)
+            activity.game.highBid=0;activity.testRender()
+        }
+        tap(inst,device,activity,"3分")
+        await("Call three points from reference-layout button"){onMain(inst){activity.game.landlord==0 && activity.game.hands[0].size==20}}
+        assertEquals("A three-point call announces three points","bid_3",onMain(inst){activity.testAudio().testState().lastCue})
+        assertEquals("The call is recorded as the base score",3,onMain(inst){activity.game.highBid})
         inst.runOnMainSync {activity.finish()};inst.waitForIdleSync()
         activity=inst.startActivitySync(Intent(context,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
         await("Restored table ready for autoplay"){onMain(inst){activity.hasWindowFocus() && activity.hand.width>0}}

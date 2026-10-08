@@ -19,11 +19,16 @@ import android.widget.*
 import java.io.*
 
 private const val SNAPSHOT_FORMAT=1
-// Deal animation, timed against the 3944 ms deal cue: 51 cards round robin, then the three bottom
-// cards. One card leaves every DEAL_GAP and needs DEAL_FLIGHT to arrive, so about six are in the air.
-private const val DEAL_START=300f
-private const val DEAL_GAP=50f
-private const val DEAL_FLIGHT=340f
+// deal.wav carries one slap per round: 17 onsets for 51 cards, three cards a round. Launching each
+// card on its own ran the whole deal about 40% faster than the cue, so the animation now rides the
+// measured beats instead. Indices are milliseconds from the start of the clip.
+internal val DEAL_BEATS=floatArrayOf(100f,310f,530f,770f,1000f,1230f,1460f,1680f,1920f,2160f,2410f,2670f,2920f,3160f,3400f,3620f,3850f)
+/** The three cards of one round leave a few milliseconds apart, the way a dealer flicks them out. */
+private const val DEAL_ROUND_STAGGER=20f
+/** Shorter than a beat, so every card is down before the next slap lands. */
+private const val DEAL_FLIGHT=260f
+/** The kitty follows the last round; the cue has no beat for it. */
+private const val DEAL_KITTY_LEAD=70f
 /** One card in flight. Hand and bottom cards translate from the deck back to their own slot; cards in
  *  the transient layer are positioned absolutely because their seat never draws a hand. */
 private class DealFlight(val launch:Float,val duration:Float,val fromX:Float,val fromY:Float,val targetX:Float,val targetY:Float,val view:View,val inLayer:Boolean,val player:Int)
@@ -85,6 +90,8 @@ class MainActivity: Activity() {
     private var corrupt=false
     private var unreadable=false
     private var dealing=false
+    /** A table that still owes its deal; on the first launch it starts once audio focus is granted. */
+    private var dealPending=false
     private lateinit var dealLayer:DealLayer
     private var dealAnimator:android.animation.ValueAnimator?=null
     private val dealFlights=mutableListOf<DealFlight>()
@@ -114,7 +121,11 @@ class MainActivity: Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         immersive()
         nextLevel=settings.getInt("level",1).coerceIn(0,2);speed=settings.getLong("speed",1800L).coerceIn(1000L,2800L)
-        val restored=restore();game.last?.let{seatMoves[game.lastPlayer]=it.cards};art=CardArt(this);audio=AudioEngine(this);buildLayout();render()
+        val restored=restore();game.last?.let{seatMoves[game.lastPlayer]=it.cards};art=CardArt(this);audio=AudioEngine(this);buildLayout()
+        // A table with no save is dealt too, but audio focus only arrives in onResume, so defer the
+        // timeline to that moment and let the animation share the cue's origin.
+        dealing=!restored;dealPending=dealing
+        render()
         registerBackCallback()
         if(corrupt)Toast.makeText(this,"存档无法读取，本局已重新开始；战绩与设置已保留",Toast.LENGTH_LONG).show()
         if(!restored)audio.requestDeal()
@@ -186,7 +197,7 @@ class MainActivity: Activity() {
             else table.place(cards,if(p==1).174f else .550f,.25f,.28f,.164f)
         }
         notice=label("",13f,0xffdaedff.toInt());table.place(notice,.29f,.50f,.42f,.078f)
-        actions=LinearLayout(this).apply{gravity=Gravity.CENTER;clipChildren=false;minimumHeight=dp(48)};table.place(actions,.25f,.465f,.5f,.132f)
+        actions=LinearLayout(this).apply{gravity=Gravity.CENTER;clipChildren=false;minimumHeight=dp(48)};table.place(actions,.19f,.465f,.62f,.132f)
         hand=HandLayout(this).apply{contentDescription="我的手牌，点击或横滑选择，再点出牌";setPadding(0,dp(2),0,0)};table.place(hand,.048f,.585f,.904f,.332f)
         table.place(View(this).apply{setBackgroundColor(0x38303c69)},0f,.934f,1f,.066f)
         table.place(self,.047f,.846f,.069f,.137f)
@@ -238,7 +249,7 @@ class MainActivity: Activity() {
         bottom.visibility=if(dealing)View.VISIBLE else counter.visibility
         for(p in 0..2){seatCards[p].visibility=if(game.turn==p && game.phase!="over")View.INVISIBLE else View.VISIBLE;people[p].active=game.turn==p&&game.phase!="over";seatCards[p].show(displayCards(seatMoves[p]));seatCards[p].contentDescription="${names[p]}出牌："+seatMoves[p].joinToString("、"){Rules.cardName(it)}}
         bottom.show(if(game.landlord<0)listOf(54,54,54) else game.bottom.asReversed())
-        notice.text=if(dealing)"正在发牌…" else when(game.phase){"bid"->if(game.turn==0)"轮到你叫地主" else "${names[game.turn]}正在叫分";"redeal"->"无人叫分，重新发牌";"over"->if(game.delta>0)"本局获胜" else "本局结束";else->if(game.turn==0)"轮到你出牌" else "${names[game.turn]}正在出牌"}
+        notice.text=if(dealing)"正在发牌…" else when(game.phase){"bid"->if(game.turn==0)"轮到你叫分" else "${names[game.turn]}正在叫分";"redeal"->"无人叫分，重新发牌";"over"->if(game.delta>0)"本局获胜" else "本局结束";else->if(game.turn==0)"轮到你出牌" else "${names[game.turn]}正在出牌"}
         notice.announceForAccessibility(notice.text)
         selfName.text=if(dealing)"我 · 0张" else "${role(0).ifEmpty{"我"}} · ${game.hands[0].size}张"
         info.text=score.toString();record.text="$wins 胜 / $games 局";multiple.text="×${game.multiplier} 倍"
@@ -253,7 +264,12 @@ class MainActivity: Activity() {
             dealing->{}
             autoPlay&&game.phase!="over"->{addAction("取消托管",true){autoPlay=false;render();schedule()}}
             game.phase=="over"-> {addAction("再来一局",true){fresh()};addAction("查看结算"){showResult()}}
-            game.phase=="bid"&&game.turn==0->{addAction("叫地主",true){humanBid(3)};addClock();addAction("不叫",false){humanBid(0)}}
+            // Score bidding: a call must beat the current highest, so lower scores grey out.
+            game.phase=="bid"&&game.turn==0->{
+                addAction("不叫",false){humanBid(0)}
+                addClock()
+                for(n in 1..3)addAction("${n}分",primary=n==3,enabled=n>game.highBid){humanBid(n)}
+            }
             game.phase=="play"&&game.turn==0->{
                 addAction("不出",enabled=game.last!=null){humanPlay(emptyList())}
                 // Leading freely always has a move, so the generator only runs when there is something
@@ -271,7 +287,7 @@ class MainActivity: Activity() {
         selection.text=if(selected.isEmpty())if(game.phase=="over")"本局 ${game.delta}" else "" else "已选 ${selected.size} 张 · ${m?.kind?.title?:"牌型不完整"}${if(m!=null&&!valid)" · 压不过上家" else ""}"
         playButton?.let{buttonEnabled(it,selected.isNotEmpty()&&valid)}
     }
-    private fun humanBid(n:Int){if(game.turn!=0||game.phase!="bid")return;game.bid(n);audio.cue(AudioCues.forLandlordCall(n>0));advance()}
+    private fun humanBid(n:Int){if(game.turn!=0||game.phase!="bid")return;game.bid(n);audio.cue(AudioCues.forBid(n));advance()}
     private fun humanPlay(cards:List<Int>){
         if(game.turn!=0||game.phase!="play")return
         try{val cue=AudioCues.forMove(Rules.classify(cards),game.hands[game.turn],game.last);playCards(cards);selected.clear();audio.cue(cue);advance()}
@@ -311,10 +327,13 @@ class MainActivity: Activity() {
         handler.removeCallbacksAndMessages(null);seatMoves=Array(3){emptyList()}
         game=Game.create(nextLevel);selected.clear();persist()
         dealAnimator?.cancel();dealAnimator=null
-        dealing=true;render();audio.requestDeal();startDeal()
+        dealing=true;dealPending=true;render();audio.requestDeal();startDeal()
     }
     /** Builds the timeline from the laid-out views, so every card lands exactly where it comes to rest. */
     private fun startDeal(){
+        if(!dealing)return
+        dealPending=false
+        dealAnimator?.cancel();dealAnimator=null
         hand.post{
             if(!dealing||isFinishing||isDestroyed)return@post
             dealLayer.removeAllViews();dealFlights.clear();handFlights.clear();bottomFlights.clear()
@@ -326,9 +345,8 @@ class MainActivity: Activity() {
             val bottomDeckX=deckX-bottom.left;val bottomDeckY=deckY-bottom.top
             dealLayer.cardWidth=(cardH*CardFace.WIDTH_HEIGHT_RATIO).toInt().coerceAtLeast(1);dealLayer.cardHeight=cardH
             val seatX=floatArrayOf(0f,tableW*.15f,tableW*.85f);val seatY=floatArrayOf(0f,tableH*.45f,tableH*.45f)
-            var slot=0
-            for(round in 0 until 17)for(p in 0..2){
-                val launch=DEAL_START+slot*DEAL_GAP;slot++
+            for(round in DEAL_BEATS.indices)for(p in 0..2){
+                val launch=DEAL_BEATS[round]+p*DEAL_ROUND_STAGGER
                 if(p==0){
                     val v=hand.getChildAt(round)?:continue
                     DealFlight(launch,DEAL_FLIGHT,handDeckX,handDeckY,v.left.toFloat(),v.top.toFloat(),v,false,0).also{dealFlights.add(it);handFlights.add(it)}
@@ -337,13 +355,14 @@ class MainActivity: Activity() {
                     dealFlights.add(DealFlight(launch,DEAL_FLIGHT,deckX,deckY,seatX[p],seatY[p],back,true,p))
                 }
             }
+            val kittyLead=DEAL_BEATS.last()+DEAL_KITTY_LEAD
             for(i in 0 until Math.min(3,bottom.childCount)){
                 val v=bottom.getChildAt(i)
-                DealFlight(DEAL_START+slot*DEAL_GAP,DEAL_FLIGHT,bottomDeckX,bottomDeckY,v.left.toFloat(),v.top.toFloat(),v,false,-1).also{dealFlights.add(it);bottomFlights.add(it)};slot++
+                DealFlight(kittyLead+i*DEAL_ROUND_STAGGER,DEAL_FLIGHT,bottomDeckX,bottomDeckY,v.left.toFloat(),v.top.toFloat(),v,false,-1).also{dealFlights.add(it);bottomFlights.add(it)}
             }
             dealLayer.isClickable=true
             applyDeal(0f)
-            val total=DEAL_START+slot*DEAL_GAP+DEAL_FLIGHT
+            val total=kittyLead+2*DEAL_ROUND_STAGGER+DEAL_FLIGHT
             dealAnimator=android.animation.ValueAnimator.ofFloat(0f,total).apply{
                 duration=total.toLong();interpolator=android.view.animation.LinearInterpolator()
                 addUpdateListener{applyDeal(it.animatedValue as Float)}
@@ -510,7 +529,7 @@ class MainActivity: Activity() {
         val file=AtomicFile(File(filesDir,"native-table-v3"));var out:FileOutputStream?=null
         try{out=file.startWrite();val stream=ObjectOutputStream(out);stream.writeObject(TableSnapshot(SNAPSHOT_FORMAT,game));stream.flush();file.finishWrite(out)}catch(_:IOException){file.failWrite(out)}
     }
-    override fun onResume(){super.onResume();running=true;if(::audio.isInitialized)audio.resume();if(::game.isInitialized)schedule()}
+    override fun onResume(){super.onResume();running=true;if(::audio.isInitialized)audio.resume();if(::game.isInitialized){if(dealPending)startDeal();schedule()}}
     override fun onPause(){running=false;handler.removeCallbacksAndMessages(null);if(dealing)endDeal();if(::audio.isInitialized)audio.pause();if(::game.isInitialized)persist();super.onPause()}
     override fun onDestroy(){handler.removeCallbacksAndMessages(null);dealAnimator?.cancel();dealAnimator=null;if(::audio.isInitialized)audio.release();super.onDestroy()}
     private fun handleBack(){

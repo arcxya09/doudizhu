@@ -106,4 +106,74 @@ class RulesTest {
         assertThrows(IllegalArgumentException::class.java){h.bid(1)}
         assertThrows(IllegalArgumentException::class.java){h.play(listOf(99))}
     }
+    @Test fun handsLeftCountsPlaysNotCards(){
+        assertEquals("a straight is one play",1,Rules.handsLeft(cards(3,4,5,6,7)))
+        assertEquals("five loose singles are five plays",5,Rules.handsLeft(cards(3,5,7,9,11)))
+        assertEquals("a run of pairs is one play",1,Rules.handsLeft(cards(3,3,4,4,5,5)))
+        assertEquals("a plane is one play",1,Rules.handsLeft(cards(3,3,3,4,4,4)))
+        assertEquals("a bomb is one play",1,Rules.handsLeft(cards(7,7,7,7)))
+        assertEquals("a rocket is one play",1,Rules.handsLeft(cards(16,17)))
+        assertEquals("a triple carries one single for free",1,Rules.handsLeft(cards(5,5,5,9)))
+        assertEquals("an empty hand needs nothing",0,Rules.handsLeft(emptyList()))
+    }
+    @Test fun aFarmerFeedsTheTeammateWhoPlaysNext(){
+        // Farmer 1 leads, teammate 2 sits on one card and plays immediately after.
+        val lead=Rules.ai(cards(3,9,13),null,1,0,0,listOf(3,3,1),2,Random(7))
+        assertEquals("Feed the smallest single so the teammate can finish",3,lead?.key)
+    }
+    @Test fun aLeaderFacingOneCardPrefersAWidePlayOverALowSingle(){
+        // Landlord 0 leads, a farmer sits on a single card.
+        val lead=Rules.ai(cards(3,5,5),null,0,0,-1,listOf(3,1,5),2,Random(11))
+        assertEquals("Dump the pair the last card cannot answer",Kind.PAIR,lead?.kind)
+    }
+    /** The cue carries one slap per round, so the animation must ride those slaps rather than an
+     *  invented tempo: this re-derives them from the asset and checks every scheduled beat. */
+    @Test fun dealBeatsSitOnTheCueSlaps(){
+        val wav=java.io.File("src/main/assets/audio/deal.wav")
+        assertTrue("deal cue is in the assets",wav.isFile)
+        val b=wav.readBytes()
+        fun u16(o:Int)=(b[o].toInt() and 0xff) or ((b[o+1].toInt() and 0xff) shl 8)
+        assertEquals("mono 16-bit PCM as documented",1,u16(22))
+        assertEquals("16-bit samples",16,u16(34))
+        val rate=u16(24);val data=44;val samples=(b.size-data)/2
+        val hop=rate/100;val win=rate/50
+        val env=FloatArray((samples-win)/hop){i->
+            var acc=0.0
+            for(k in 0 until win){val v=u16(data+(i*hop+k)*2).toShort().toDouble();acc+=v*v}
+            Math.sqrt(acc/win).toFloat()/32768.0f
+        }
+        val slaps=mutableListOf<Float>()
+        for(i in 1 until env.size){
+            if(env[i]-env[i-1]>0.004f && env[i]>0.01f && (slaps.isEmpty() || i*10f-slaps.last()>50f)) slaps.add(i*10f)
+        }
+        assertEquals("one slap per round of three cards",DEAL_BEATS.size,slaps.size)
+        DEAL_BEATS.forEachIndexed{i,beat->
+            assertTrue("beat $i at ${beat}ms drifts from the slap at ${slaps[i]}ms",Math.abs(beat-slaps[i])<=40f)
+        }
+    }
+    /** Self-play strength harness. Seat 0 always takes the landlord so the two roles are controlled. */
+    private fun landlordWinRate(lord:Int,farmer:Int,seeds:IntRange):Int {
+        var wins=0;var played=0
+        for(seed in seeds){
+            val rng=Random(seed);val g=Game.create(1,rng)
+            g.turn=0;g.bid(3)
+            var steps=0
+            while(g.phase!="over"&&steps++<900){
+                val level=if(g.turn==g.landlord)lord else farmer
+                val m=Rules.ai(g.hands[g.turn],g.last,g.turn,g.landlord,g.lastPlayer,g.hands.map{it.size},level,rng)
+                g.play(m?.cards?:emptyList())
+            }
+            if(g.phase=="over"){played++;if(g.winner==g.landlord)wins++}
+        }
+        return if(played==0)0 else wins*100/played
+    }
+    @Test fun hardSeatsOutplayEasySeats(){
+        // Measured 61% with the old per-rank cost and 80% once hands were scored by plays left, so the
+        // threshold guards that gain rather than merely checking that hard beats random.
+        val hardLord=landlordWinRate(2,0,1..300)
+        val easyLord=landlordWinRate(0,2,1..300)
+        println("STRENGTH hard-landlord=$hardLord%  easy-landlord=$easyLord%")
+        assertTrue("A hard landlord should beat easy farmers: $hardLord%",hardLord>70)
+        assertTrue("Hard farmers should hold an easy landlord under half: $easyLord%",easyLord<45)
+    }
 }
