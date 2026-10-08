@@ -1,6 +1,6 @@
 # 正式版签名与覆盖升级
 
-首个正式版计划为 **v3.6.0（versionCode 19）**。所有正式版保持包名 `com.arcxya.doudizhu`，使用同一份私人签名密钥。每次发布必须递增 `versionCode`，才能通过 Android 的正常覆盖升级检查。
+首个正式版为 **v3.6.0（versionCode 19）**，当前版本为 **v3.6.1（versionCode 20）**。所有正式版保持包名 `com.arcxya.doudizhu`，使用同一份私人签名密钥。每次发布必须递增 `versionCode`，才能通过 Android 的正常覆盖升级检查。
 
 正式证书的 SHA-256 指纹固定为：
 

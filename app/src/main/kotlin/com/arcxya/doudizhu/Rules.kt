@@ -4,7 +4,11 @@ import java.io.Serializable
 import kotlin.random.Random
 
 enum class Kind(val title: String) { SINGLE("单张"), PAIR("对子"), TRIPLE("三张"), TRIPLE_SINGLE("三带一"), TRIPLE_PAIR("三带二"), STRAIGHT("顺子"), PAIRS("连对"), PLANE("飞机"), PLANE_SINGLE("飞机带单"), PLANE_PAIR("飞机带对"), FOUR_SINGLE("四带二"), FOUR_PAIR("四带两对"), BOMB("炸弹"), ROCKET("王炸") }
-data class Move(val cards: List<Int>, val kind: Kind, val key: Int, val span: Int = 1): Serializable
+data class Move(val cards: List<Int>, val kind: Kind, val key: Int, val span: Int = 1): Serializable {
+    // Pinned to the value Java derived before this was declared. Without it, any later field
+    // change would alter the computed UID and make stored games unreadable.
+    companion object { private const val serialVersionUID = 1167266074364606188L }
+}
 object Rules {
     fun rank(c: Int) = if (c < 52) 3 + c / 4 else c - 36
     fun sorted(cards: List<Int>) = cards.sortedWith(compareBy({rank(it)}, {it}))
@@ -98,19 +102,25 @@ object Rules {
             return (ordinary.ifEmpty { ms }).random(rng)
         }
         val danger = counts.indices.any { it != player && (player == landlord || it == landlord) && counts[it] <= 2 }
-        return ms.minBy { m ->
-            val left = hand - m.cards.toSet(); var score = cost(left)*3 + m.key*.08
-            if (m.kind == Kind.BOMB || m.kind == Kind.ROCKET) score += if(target == null) 11 else 7
+        fun score(m: Move): Double {
+            val left = hand - m.cards.toSet(); var s = cost(left)*3 + m.key*.08
+            if (m.kind == Kind.BOMB || m.kind == Kind.ROCKET) s += if(target == null) 11 else 7
             if (level == 2) {
                 val before = groups(hand); val after = groups(left)
-                for (r in before.keys) if (before[r]?.size == 4 && after[r] != null && after[r]!!.size < 4) score += 4
-                if (danger && target != null) score -= m.key*.45
-                if (danger && target == null && m.kind == Kind.SINGLE) score += 8
+                for (r in before.keys) if (before[r]?.size == 4 && after[r] != null && after[r]!!.size < 4) s += 4
+                if (danger && target != null) s -= m.key*.45
+                if (danger && target == null && m.kind == Kind.SINGLE) s += 8
                 val next = (player+1)%3
-                if (target == null && player != landlord && next != landlord && counts[next] <= 2) score += m.key*.2
+                if (target == null && player != landlord && next != landlord && counts[next] <= 2) s += m.key*.2
             }
-            score
+            return s
         }
+        val ranked = ms.map { it to score(it) }
+        val best = ranked.minOf { it.second }
+        // Moves inside this margin are interchangeable, so picking among them removes the one fixed
+        // line a deterministic choice would repeat for the same hand without weakening the play.
+        val pool = ranked.filter { it.second <= best + .25 }.map { it.first }
+        return pool.random(rng)
     }
     fun bid(hand: List<Int>, current: Int, level: Int, rng: Random = Random.Default): Int {
         val g = groups(hand)
@@ -133,6 +143,9 @@ data class Game(
     var winner: Int = -1, var spring: Boolean = false, var settled: Boolean = false, var delta: Int = 0
 ): Serializable {
     companion object {
+        // Pinned to the value Java derived before this was declared, so saved tables written by
+        // earlier builds stay readable and future fields default instead of invalidating the class.
+        private const val serialVersionUID = -2247460378412267329L
         fun create(level: Int, rng: Random = Random.Default): Game {
             val deck = (0..53).shuffled(rng)
             return Game((0..2).map { Rules.sorted(deck.subList(it*17,it*17+17)).toMutableList() }.toMutableList(),deck.takeLast(3),level,rng.nextInt(3))

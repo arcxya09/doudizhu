@@ -14,3 +14,8 @@ node_modules/
 *keystore-base64*
 *signing-backup*
 __pycache__/
+device-results/
+release-results/
+previous-official/
+local-signing-input/
+published-apk/

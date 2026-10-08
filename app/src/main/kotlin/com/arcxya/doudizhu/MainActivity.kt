@@ -18,7 +18,30 @@ import android.view.WindowManager
 import android.widget.*
 import java.io.*
 
-private data class SavedTable(val game:Game,val games:Int,val wins:Int,val score:Int):Serializable
+private const val SNAPSHOT_FORMAT=1
+// Frozen legacy record written by builds up to v3.6.0. Its field list and serialVersionUID must not
+// change: the release upgrade check reads it and requires the file to stay byte-identical.
+internal data class SavedTable(val game:Game,val games:Int,val wins:Int,val score:Int):Serializable {
+    companion object{private const val serialVersionUID=6861108738685167990L}
+}
+// Current snapshot. The format tag lets a later build migrate a stored table instead of dropping it.
+internal data class TableSnapshot(val format:Int,val game:Game):Serializable {
+    companion object{private const val serialVersionUID=1L}
+}
+/** A stored table is only used when it is internally consistent. render() indexes level, turn and the
+ *  hands directly, so a truncated or hand-edited record must be rejected instead of crashing. */
+internal fun usableTable(g:Game?):Boolean{
+    if(g==null)return false
+    if(g.level !in 0..2 || g.turn !in 0..2 || g.lastPlayer !in -1..2)return false
+    if(g.landlord !in -1..2 || g.bidder !in -1..2)return false
+    if(g.phase !in setOf("bid","redeal","play","over"))return false
+    if(g.hands.size!=3 || g.bottom.size!=3 || g.status.size!=3 || g.played.size!=3)return false
+    if(g.bottom.toSet().size!=3 || g.bottom.any{it !in 0..53})return false
+    if(g.hands.any{h->h.size>20 || h.toSet().size!=h.size || h.any{it !in 0..53}})return false
+    if(g.phase=="play"&&g.landlord<0)return false
+    if(g.phase!="over"&&g.hands.any{it.isEmpty()})return false
+    return true
+}
 class MainActivity: Activity() {
     internal lateinit var game:Game
     internal lateinit var hand:HandLayout
@@ -51,6 +74,8 @@ class MainActivity: Activity() {
     private val handler=Handler(Looper.getMainLooper())
     private var running=false
     private var modal=false
+    private var corrupt=false
+    private var unreadable=false
     private var nextLevel=1
     private var speed=1800L
     private var games=0;private var wins=0;private var score=0
@@ -76,6 +101,8 @@ class MainActivity: Activity() {
         immersive()
         nextLevel=settings.getInt("level",1).coerceIn(0,2);speed=settings.getLong("speed",1800L).coerceIn(1000L,2800L)
         val restored=restore();game.last?.let{seatMoves[game.lastPlayer]=it.cards};art=CardArt(this);audio=AudioEngine(this);buildLayout();render()
+        registerBackCallback()
+        if(corrupt)Toast.makeText(this,"存档无法读取，本局已重新开始；战绩与设置已保留",Toast.LENGTH_LONG).show()
         if(!restored)audio.requestDeal()
     }
     @Suppress("DEPRECATION")
@@ -115,7 +142,7 @@ class MainActivity: Activity() {
             setCompoundDrawablesWithIntrinsicBounds(null,TableIcon(icon,dp(16)),null,null)
             setOnClickListener{action()}
         }
-        val back=tool("",4){onBackPressed()};back.contentDescription="返回，保存牌局"
+        val back=tool("",4){handleBack()};back.contentDescription="返回，保存牌局"
         table.place(back,.036f,.008f,.058f,.10f)
         counter=RankCounter(this);table.place(counter,.145f,.01f,.31f,.084f)
         bottom=CardStrip(this,art).apply{contentDescription="地主底牌"};table.place(bottom,.46f,.009f,.09f,.088f)
@@ -195,8 +222,8 @@ class MainActivity: Activity() {
         selfName.text="${role(0).ifEmpty{"我"}} · ${game.hands[0].size}张"
         info.text=score.toString();record.text="$wins 胜 / $games 局";multiple.text="×${game.multiplier} 倍"
         selected.retainAll(game.hands[0].toSet());hand.removeAllViews()
-        displayCards(game.hands[0]).forEachIndexed { index,card->
-            val face=CardFace(this,art,card,true);face.landlordRibbon=game.landlord==0 && index==game.hands[0].lastIndex;face.isSelected=card in selected;face.isEnabled=game.phase=="play"&&game.turn==0&&!autoPlay
+        displayCards(game.hands[0]).forEach { card->
+            val face=CardFace(this,art,card,true);face.bottomCard=game.landlord==0 && card in game.bottom;face.isSelected=card in selected;face.isEnabled=game.phase=="play"&&game.turn==0&&!autoPlay
             face.setOnClickListener{audio.cue("select");if(card in selected)selected.remove(card) else selected.add(card);face.isSelected=card in selected;refreshSelection()}
             hand.addView(face)
         }
@@ -318,19 +345,47 @@ class MainActivity: Activity() {
             data?.data?.let{uri->audio.importMusic(uri){result->if(!isFinishing&&!isDestroyed)Toast.makeText(this,result.message,Toast.LENGTH_LONG).show()}}
         }
     }
+    /** Record lives outside the snapshot so an unreadable table can never erase the player's record. */
+    private fun recordStore()=getSharedPreferences("record",0)
+    private fun saveRecord(){recordStore().edit().putInt("format",SNAPSHOT_FORMAT).putInt("games",games).putInt("wins",wins).putInt("score",score).apply()}
+    private fun readStored(file:File):Any?{
+        if(!file.exists())return null
+        return try{ObjectInputStream(AtomicFile(file).openRead()).use{it.readObject()}}catch(_:Exception){unreadable=true;null}
+    }
     private fun restore():Boolean{
-        return try{val saved=ObjectInputStream(AtomicFile(File(filesDir,"native-table-v2")).openRead()).use{it.readObject() as SavedTable};game=saved.game;games=saved.games;wins=saved.wins;score=saved.score;true}
-        catch(_:Exception){game=Game.create(nextLevel);false}
+        // v3 is the current format; v2 is only ever read, never rewritten, so older builds keep it.
+        val current=readStored(File(filesDir,"native-table-v3")) as? TableSnapshot
+        val legacy=if(current?.game==null)readStored(File(filesDir,"native-table-v2")) as? SavedTable else null
+        val stored=recordStore()
+        when {
+            stored.contains("games")->{games=stored.getInt("games",0);wins=stored.getInt("wins",0);score=stored.getInt("score",0)}
+            legacy!=null->{games=legacy.games;wins=legacy.wins;score=legacy.score;saveRecord()}
+        }
+        val candidate=current?.game?:legacy?.game
+        if(usableTable(candidate)){game=candidate!!;return true}
+        // Only warn when this actually costs the player a table: a readable v2 fallback is not a loss.
+        corrupt=unreadable||candidate!=null
+        game=Game.create(nextLevel)
+        return false
     }
     private fun persist(){
-        val file=AtomicFile(File(filesDir,"native-table-v2"));var out:FileOutputStream?=null
-        try{out=file.startWrite();val stream=ObjectOutputStream(out);stream.writeObject(SavedTable(game,games,wins,score));stream.flush();file.finishWrite(out)}catch(_:IOException){file.failWrite(out)}
+        saveRecord()
+        val file=AtomicFile(File(filesDir,"native-table-v3"));var out:FileOutputStream?=null
+        try{out=file.startWrite();val stream=ObjectOutputStream(out);stream.writeObject(TableSnapshot(SNAPSHOT_FORMAT,game));stream.flush();file.finishWrite(out)}catch(_:IOException){file.failWrite(out)}
     }
     override fun onResume(){super.onResume();running=true;if(::audio.isInitialized)audio.resume();if(::game.isInitialized)schedule()}
     override fun onPause(){running=false;handler.removeCallbacksAndMessages(null);if(::audio.isInitialized)audio.pause();if(::game.isInitialized)persist();super.onPause()}
     override fun onDestroy(){handler.removeCallbacksAndMessages(null);if(::audio.isInitialized)audio.release();super.onDestroy()}
-    @Deprecated("Legacy Android back callback")
-    override fun onBackPressed(){if(modal)return;modal=true;handler.removeCallbacksAndMessages(null);AlertDialog.Builder(this).setTitle("暂时离开牌桌？").setMessage("当前牌局已经保存，下次打开继续。").setPositiveButton("离开"){_,_->finish()}.setNegativeButton("继续玩",null).create().apply{setOnDismissListener{modal=false;schedule()};show()}}
+    private fun handleBack(){
+        if(modal)return;modal=true;handler.removeCallbacksAndMessages(null)
+        AlertDialog.Builder(this).setTitle("暂时离开牌桌？").setMessage("当前牌局已经保存，下次打开继续。").setPositiveButton("离开"){_,_->finish()}.setNegativeButton("继续玩",null).create().apply{setOnDismissListener{modal=false;schedule()};show()}
+    }
+    /** Android 13 and later deliver back through the invoked-callback dispatcher, not onBackPressed. */
+    private fun registerBackCallback(){
+        if(Build.VERSION.SDK_INT>=33)onBackInvokedDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT){handleBack()}
+    }
+    @Deprecated("Legacy Android back callback for API 32 and below")
+    override fun onBackPressed(){handleBack()}
     internal fun testAudio():AudioEngine=audio
     internal fun testBidding(){
         handler.removeCallbacksAndMessages(null);seatMoves=Array(3){emptyList()}

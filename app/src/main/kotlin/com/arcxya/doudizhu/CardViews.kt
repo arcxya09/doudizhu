@@ -39,7 +39,9 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
     private fun dp(v:Float)=v*resources.displayMetrics.density
     var indexWidth=0f
     var compactIndex=false
-    var landlordRibbon=false
+    /** One of the three bottom cards the landlord took. The marker sits in the exposed index strip,
+     *  because an overlapped card only shows that strip and a corner ribbon would be covered. */
+    var bottomCard=false
     var showBody=true
     init {contentDescription=if(card==54) "未公开底牌" else Rules.cardName(card);isFocusable=largeIndex}
     private fun fitted(canvas:Canvas,name:String,box:RectF) {
@@ -76,9 +78,15 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
                 fitted(canvas,suit,RectF(box.right-pip-dp(6f),box.bottom-pip-dp(8f),box.right-dp(6f),box.bottom-dp(8f)))
             }
         }
-        if(landlordRibbon){
-            val sz=w*.46f;paint.color=0xffffa92b.toInt();val triangle=Path().apply{moveTo(box.right-sz,box.top);lineTo(box.right,box.top);lineTo(box.right,box.top+sz);close()};canvas.drawPath(triangle,paint)
-            canvas.save();canvas.rotate(45f,box.right-sz*.32f,box.top+sz*.32f);paint.color=Color.WHITE;paint.typeface=Typeface.DEFAULT_BOLD;paint.textSize=sz*.25f;paint.textAlign=Paint.Align.CENTER;canvas.drawText("地主",box.right-sz*.32f,box.top+sz*.4f,paint);canvas.restore()
+        if(bottomCard){
+            val strip=min(if(indexWidth>0f)indexWidth else w*.42f,w).coerceAtLeast(dp(6f))
+            val bar=dp(4f)
+            paint.style=Paint.Style.FILL;paint.color=0xffffa92b.toInt()
+            canvas.drawRoundRect(RectF(box.left,box.bottom-bar,box.left+strip-dp(2f),box.bottom),bar/2,bar/2,paint)
+            if(showBody){
+                val sz=w*.46f;val triangle=Path().apply{moveTo(box.right-sz,box.top);lineTo(box.right,box.top);lineTo(box.right,box.top+sz);close()};canvas.drawPath(triangle,paint)
+                canvas.save();canvas.rotate(45f,box.right-sz*.32f,box.top+sz*.32f);paint.color=Color.WHITE;paint.typeface=Typeface.DEFAULT_BOLD;paint.textSize=sz*.25f;paint.textAlign=Paint.Align.CENTER;canvas.drawText("地主",box.right-sz*.32f,box.top+sz*.4f,paint);canvas.restore()
+            }
         }
     }
     override fun setSelected(selected:Boolean){super.setSelected(selected);invalidate()}
