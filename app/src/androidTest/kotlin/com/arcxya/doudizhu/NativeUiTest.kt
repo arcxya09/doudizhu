@@ -247,7 +247,7 @@ class NativeUiTest {
                     report.append("$assetFile: decoded ${decoder.duration} ms\n")
                 } finally { decoder.release() }
             }
-            onMain(inst) { engine.configure(true, true, 45) }
+            onMain(inst) { engine.configure(true, true, 60, 55) }
             await("All recorded cues loaded and BGM playing") { onMain(inst) {
                 val state = engine.testState()
                 state.playing && state.looping && state.loadedCues == AudioEngine.CUE_DURATIONS.keys
@@ -291,7 +291,7 @@ class NativeUiTest {
                 assertEquals("Failed replacement preserves selection name", "本地测试音乐.wav", state.musicName)
                 assertTrue("Failed replacement leaves old audio playable", state.playing)
                 assertTrue("Failed replacement leaves old decoded track", abs(state.durationMs-importedDuration) <= 100)
-                engine.configure(false, true, 45)
+                engine.configure(false, true, 60, 55)
             }
             assertTrue("Import remains usable with music switched off", importTrack(importedBytes, "静音导入音乐.wav"))
             onMain(inst) {
@@ -321,7 +321,7 @@ class NativeUiTest {
                     state.musicSource == "local" && state.musicName == "静音导入音乐.wav" &&
                     abs(state.durationMs-importedDuration) <= 100 && !engine.music && !state.playing
             } }
-            onMain(inst) { engine.configure(true, true, 45) }
+            onMain(inst) { engine.configure(true, true, 60, 55) }
             await("Persisted local audio plays after enabling music") { onMain(inst) { engine.testState().playing } }
             onMain(inst){
                 val playing=AudioEngine::class.java.getDeclaredField("player").apply{isAccessible=true}.get(engine) as MediaPlayer
@@ -388,20 +388,30 @@ class NativeUiTest {
                 engine.cue("single_6")
                 assertEquals("Short spoken rank replaces the previous foreground voice", 1, engine.testState().activeStreams)
                 assertEquals("Short rank is the new foreground cue", "single_6", engine.testState().lastCue)
-                engine.configure(true, false, 45)
+                engine.configure(true, false, 60, 55)
                 assertEquals("Disabling effects stops current cues", 0, engine.testState().activeStreams)
                 assertTrue("Music keeps playing when only effects are disabled", engine.testState().playing)
-                engine.configure(false, true, 45)
+                engine.configure(false, true, 60, 55)
                 assertFalse("Disabling music pauses BGM", engine.testState().playing)
                 engine.cue("pass")
                 assertTrue("Effects remain usable without music", engine.testState().activeStreams > 0)
-                engine.configure(false, false, 45)
+                engine.configure(false, false, 60, 55)
                 assertFalse("Both sound switches silence BGM", engine.testState().playing)
                 assertEquals("Both sound switches silence effects", 0, engine.testState().activeStreams)
-                engine.configure(true, true, 0)
+                engine.configure(true, true, 0, 0)
                 assertFalse("Zero volume pauses BGM", engine.testState().playing)
                 assertFalse("Zero volume releases audio focus", engine.testState().focused)
-                engine.configure(true, true, 45)
+                // The two channels are independent: silencing one must leave the other working.
+                engine.configure(true, true, 0, 55)
+                assertFalse("Zero music volume pauses BGM", engine.testState().playing)
+                engine.cue("pass")
+                assertTrue("Effects still play with music volume at zero", engine.testState().activeStreams > 0)
+                engine.configure(true, true, 60, 0)
+                assertTrue("Music still plays with effect volume at zero", engine.testState().playing)
+                assertEquals("Zero effect volume stops cues", 0, engine.testState().activeStreams)
+                assertEquals("Music level is stored on its own channel", 60, engine.musicVolume)
+                assertEquals("Effect level is stored on its own channel", 0, engine.effectVolume)
+                engine.configure(true, true, 60, 55)
                 engine.cue("rocket")
             }
             assertTrue("Move app to background", device.pressHome())
@@ -568,7 +578,7 @@ class NativeUiTest {
         inst.runOnMainSync {activity.testBidding()}
         captureGame(inst,device,activity,File(dir,"native-bidding.png"))
         assertEquals("Reference bidding fixture has seventeen cards", 17, onMain(inst) { activity.hand.childCount })
-        onMain(inst){activity.testAudio().configure(true,true,45)}
+        onMain(inst){activity.testAudio().configure(true,true,60,55)}
         await("Call-landlord voice ready"){onMain(inst){"bid" in activity.testAudio().testState().loadedCues}}
         tap(inst,device,activity,"叫地主")
         await("Call landlord from reference-layout button"){onMain(inst){activity.game.landlord==0 && activity.game.hands[0].size==20}}

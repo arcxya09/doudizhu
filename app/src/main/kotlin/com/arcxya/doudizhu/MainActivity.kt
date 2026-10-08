@@ -408,11 +408,32 @@ class MainActivity: Activity() {
         val content=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(20),dp(10),dp(20),dp(10))}
         val music=Switch(this).apply{text="背景音乐";textSize=20f;isChecked=audio.music;minHeight=dp(48)}
         val effects=Switch(this).apply{text="出牌音效";textSize=20f;isChecked=audio.effects;minHeight=dp(48)}
-        content.addView(music);content.addView(effects);content.addView(text("声音大小",18f))
-        val volume=SeekBar(this).apply{max=100;progress=audio.volume;minimumHeight=dp(48)};content.addView(volume)
-        fun applySound(){audio.configure(music.isChecked,effects.isChecked,volume.progress)}
+        content.addView(music);content.addView(effects)
+        // Music and effects are separate channels: the deal cue is 3.9 s of continuous sound and can
+        // need a very different level from the short spoken cues. Label and slider share one row to
+        // keep the dialog short enough that the music buttons stay on screen.
+        fun levelLabel()=text("",18f).apply{
+            gravity=Gravity.START;maxLines=1;isSingleLine=true
+            setAutoSizeTextTypeUniformWithConfiguration(10,18,1,android.util.TypedValue.COMPLEX_UNIT_SP)
+        }
+        fun levelRow(label:TextView,bar:SeekBar)=LinearLayout(this).apply{
+            orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL
+            addView(label,LinearLayout.LayoutParams(dp(168),LinearLayout.LayoutParams.WRAP_CONTENT))
+            addView(bar,LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f))
+        }
+        val musicLabel=levelLabel();val effectLabel=levelLabel()
+        val musicBar=SeekBar(this).apply{max=100;progress=audio.musicVolume;minimumHeight=dp(48)}
+        val effectBar=SeekBar(this).apply{max=100;progress=audio.effectVolume;minimumHeight=dp(48)}
+        content.addView(levelRow(musicLabel,musicBar));content.addView(levelRow(effectLabel,effectBar))
+        fun applySound(){
+            audio.configure(music.isChecked,effects.isChecked,musicBar.progress,effectBar.progress)
+            musicLabel.text="音乐音量 ${musicBar.progress}%"
+            effectLabel.text="音效音量 ${effectBar.progress}%"
+        }
+        applySound()
         music.setOnCheckedChangeListener{_,_->applySound()};effects.setOnCheckedChangeListener{_,_->applySound()}
-        volume.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{override fun onProgressChanged(s:SeekBar?,p:Int,user:Boolean){if(user)applySound()};override fun onStartTrackingTouch(s:SeekBar?){};override fun onStopTrackingTouch(s:SeekBar?){audio.cue("play")}})
+        musicBar.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{override fun onProgressChanged(s:SeekBar?,p:Int,user:Boolean){if(user)applySound()};override fun onStartTrackingTouch(s:SeekBar?){};override fun onStopTrackingTouch(s:SeekBar?){}})
+        effectBar.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{override fun onProgressChanged(s:SeekBar?,p:Int,user:Boolean){if(user)applySound()};override fun onStartTrackingTouch(s:SeekBar?){};override fun onStopTrackingTouch(s:SeekBar?){audio.cue("play")}})
         val musicName=text("",17f).apply{gravity=Gravity.START;maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,dp(8),0,dp(4))}
         content.addView(musicName)
         val musicButtons=LinearLayout(this).apply{gravity=Gravity.CENTER}

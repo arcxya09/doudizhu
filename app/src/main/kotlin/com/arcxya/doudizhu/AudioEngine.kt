@@ -13,13 +13,30 @@ import android.util.Log
 import java.io.InputStream
 import java.util.concurrent.Executors
 
+// Music and effects used to share one slider that also capped music at 0.4 while effects reached
+// 0.9, so the background music could never be raised above the cues. Each channel now owns a level
+// that can reach its own ceiling.
+private const val MUSIC_MAX = 1f
+private const val EFFECT_MAX = .9f
+/** The deal cue is 3.9 s of continuous sound, so it sits below the short spoken cues. */
+private const val DEAL_TRIM = .75f
+private const val DEFAULT_MUSIC_VOLUME = 60
+private const val DEFAULT_EFFECT_VOLUME = 55
+
 /** All sounds are bundled or copied from a file explicitly chosen on this device. */
 class AudioEngine(context: Context) {
     private val context = context.applicationContext
     private val prefs = context.getSharedPreferences("settings", 0)
     var music = prefs.getBoolean("music", true); private set
     var effects = prefs.getBoolean("effects", true); private set
-    var volume = prefs.getInt("volume", 45); private set
+    var musicVolume = storedLevel("musicVolume", DEFAULT_MUSIC_VOLUME); private set
+    var effectVolume = storedLevel("effectVolume", DEFAULT_EFFECT_VOLUME); private set
+    /** Falls back to the single slider older builds stored, so an existing choice is not reset. */
+    private fun storedLevel(key: String, fallback: Int) = when {
+        prefs.contains(key) -> prefs.getInt(key, fallback)
+        prefs.contains("volume") -> prefs.getInt("volume", fallback)
+        else -> fallback
+    }
     var isMusicBusy = true; private set
     val currentMusicName get() = currentSelection?.name ?: "默认背景音乐"
     val hasCustomMusic get() = currentSelection != null
@@ -252,13 +269,13 @@ class AudioEngine(context: Context) {
 
     private fun applyMusicVolume() {
         if (released) return
-        val level = volume / 100f * .4f * if (ducked) .38f else 1f
+        val level = musicVolume / 100f * MUSIC_MAX * if (ducked) .38f else 1f
         withMusicPlayer { it.setVolume(level, level) }
     }
     private fun syncMusic() {
         if (released) return
         withMusicPlayer {
-            if (active && focused && music && volume > 0) it.start()
+            if (active && focused && music && musicVolume > 0) it.start()
             else if (it.isPlaying) it.pause()
         }
         applyMusicVolume()
@@ -269,17 +286,19 @@ class AudioEngine(context: Context) {
         handler.removeCallbacks(restoreMusic)
         ducked = false
     }
-    fun configure(m: Boolean, e: Boolean, v: Int) {
+    fun configure(m: Boolean, e: Boolean, musicLevel: Int, effectLevel: Int) {
         if (released) return
-        music = m; effects = e; volume = v.coerceIn(0, 100)
-        prefs.edit().putBoolean("music", music).putBoolean("effects", effects).putInt("volume", volume).apply()
-        if (!effects || volume == 0) stopCues()
+        music = m; effects = e
+        musicVolume = musicLevel.coerceIn(0, 100); effectVolume = effectLevel.coerceIn(0, 100)
+        prefs.edit().putBoolean("music", music).putBoolean("effects", effects)
+            .putInt("musicVolume", musicVolume).putInt("effectVolume", effectVolume).apply()
+        if (!effects || effectVolume == 0) stopCues()
         if (active) resume() else applyMusicVolume()
     }
     fun resume() {
         if (released) return
         active = true
-        if ((music || effects) && volume > 0) {
+        if ((music && musicVolume > 0) || (effects && effectVolume > 0)) {
             if (!focused) focused = manager.requestAudioFocus(focus) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
         } else { manager.abandonAudioFocusRequest(focus); focused = false }
         syncMusic(); flushDeal()
@@ -291,16 +310,16 @@ class AudioEngine(context: Context) {
     }
     /** Called once for a newly dealt table, never for a restored table. */
     fun requestDeal() {
-        if (released || !effects || volume == 0) return
+        if (released || !effects || effectVolume == 0) return
         pendingDeal = true; flushDeal()
     }
     private fun flushDeal() {
-        if (pendingDeal && !released && active && focused && effects && volume > 0 && cues["deal"] in loaded) {
+        if (pendingDeal && !released && active && focused && effects && effectVolume > 0 && cues["deal"] in loaded) {
             pendingDeal = false; cue("deal")
         }
     }
     fun cue(name: String) {
-        if (released || !active || !focused || !effects || volume == 0) return
+        if (released || !active || !focused || !effects || effectVolume == 0) return
         val key = if (name == "error") "select" else name
         // If play has already advanced, a slowly loaded shuffle must not interrupt it.
         if (key != "deal") pendingDeal = false
@@ -309,7 +328,8 @@ class AudioEngine(context: Context) {
         // Some spoken ranks are shorter than 500 ms; classification is semantic.
         val isVoiceOrEvent = key != "select" && key != "play"
         if (isVoiceOrEvent && foregroundStream != 0) { pool.stop(foregroundStream); streams.remove(foregroundStream) }
-        val level = volume / 100f * if (key == "select") .5f else .9f
+        val trim = when (key) { "deal" -> DEAL_TRIM; "select" -> .5f; else -> 1f }
+        val level = effectVolume / 100f * EFFECT_MAX * trim
         val stream = pool.play(id, level, level, if (isVoiceOrEvent) 2 else 1, 0, 1f)
         if (stream == 0) return
         lastCue = key; streams.add(stream)
