@@ -254,7 +254,14 @@ class MainActivity: Activity() {
             autoPlay&&game.phase!="over"->{addAction("取消托管",true){autoPlay=false;render();schedule()}}
             game.phase=="over"-> {addAction("再来一局",true){fresh()};addAction("查看结算"){showResult()}}
             game.phase=="bid"&&game.turn==0->{addAction("叫地主",true){humanBid(3)};addClock();addAction("不叫",false){humanBid(0)}}
-            game.phase=="play"&&game.turn==0->{addAction("不出",enabled=game.last!=null){humanPlay(emptyList())};addAction("提示"){hint()};addClock();playButton=addAction("出牌",true,false){humanPlay(selected.toList())}}
+            game.phase=="play"&&game.turn==0->{
+                addAction("不出",enabled=game.last!=null){humanPlay(emptyList())}
+                // Leading freely always has a move, so the generator only runs when there is something
+                // to beat. With nothing playable the hint offers no line, so it greys out and says so.
+                val canPlay=game.last==null||Rules.moves(game.hands[0],game.last).isNotEmpty()
+                addAction(if(canPlay)"提示" else "无可出",enabled=canPlay){hint()}
+                addClock();playButton=addAction("出牌",true,false){humanPlay(selected.toList())}
+            }
             else->{}
         }
         refreshSelection()
@@ -542,6 +549,8 @@ class MainActivity: Activity() {
     /** Starts a real deal so a device test can observe both the running and the finished state. */
     internal fun testDeal():Boolean{handler.removeCallbacksAndMessages(null);autoPlay=false;fresh();running=false;return dealing}
     internal fun testDealing():Boolean=dealing
+    /** Redraws after a test has rewritten the table state directly. */
+    internal fun testRender(){render()}
     internal fun testDealLayer():DealLayer=dealLayer
     internal fun testBottomStrip():CardStrip=bottom
 }

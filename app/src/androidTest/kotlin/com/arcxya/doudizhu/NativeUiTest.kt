@@ -575,6 +575,24 @@ class NativeUiTest {
             assertEquals("A new lead clears the previous player pass","等待出牌",activity.game.status[0])
             assertEquals("A new lead clears the previous opponent pass","等待出牌",activity.game.status[2])
         }
+        // A rocket cannot be beaten by anything, so the hint has no line to offer.
+        onMain(inst){
+            activity.testStart()
+            activity.game.last=Rules.classify(listOf(52,53))
+            activity.game.lastPlayer=1
+            activity.testRender()
+        }
+        val noHint=onMain(inst){all(activity.window.decorView).filterIsInstance<Button>().single{it.text=="无可出"}}
+        assertFalse("Hint greys out when nothing can beat the table",onMain(inst){noHint.isEnabled})
+        onMain(inst){
+            assertEquals("Table is still in play when the shot is taken","play",activity.game.phase)
+            assertEquals("Hint label holds for the shot","无可出",noHint.text.toString())
+            assertFalse("Hint stays grey for the shot",noHint.isEnabled)
+        }
+        captureGame(inst,device,activity,File(dir,"native-no-hint.png"))
+        onMain(inst){activity.game.last=null;activity.testRender()}
+        val hint=onMain(inst){all(activity.window.decorView).filterIsInstance<Button>().single{it.text=="提示"}}
+        assertTrue("Hint returns while leading freely",onMain(inst){hint.isEnabled})
         inst.runOnMainSync {activity.testBidding()}
         captureGame(inst,device,activity,File(dir,"native-bidding.png"))
         assertEquals("Reference bidding fixture has seventeen cards", 17, onMain(inst) { activity.hand.childCount })
