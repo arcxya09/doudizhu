@@ -40,23 +40,78 @@ class ClassicActionButton(context:Context,private val primary:Boolean):android.w
     private val fill=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val textBounds=Rect()
     private val sprites=GameArtwork.get(context)
+    private data class Skin(val name:String,val body:Rect,val ink:Rect)
+    private companion object {
+        // Local atlas coordinates, measured from alpha >= 248 (body) and alpha > 0
+        // (all artwork). Gold has a surrounding glow; green/gray have a lower shadow.
+        val gold=Skin("btn_jdz",Rect(16,14,195,88),Rect(1,7,211,98))
+        val green=Skin("xiaolu_button",Rect(5,0,165,72),Rect(0,0,170,94))
+        val gray=Skin("xiaohui_button",Rect(5,1,165,72),Rect(0,0,170,90))
+        val skins=listOf(gold,green,gray)
+        val leftBleed=skins.maxOf{(it.body.left-it.ink.left).toFloat()/it.body.width()}
+        val rightBleed=skins.maxOf{(it.ink.right-it.body.right).toFloat()/it.body.width()}
+        val topBleed=skins.maxOf{(it.body.top-it.ink.top).toFloat()/it.body.height()}
+        val bottomBleed=skins.maxOf{(it.ink.bottom-it.body.bottom).toFloat()/it.body.height()}
+    }
     override fun onDraw(c:Canvas){
-        val d=resources.displayMetrics.density;val h=min(height.toFloat(),46*d)
-        val name=if(!isEnabled)"xiaohui_button" else if(primary)"btn_jdz" else "xiaolu_button"
-        val face=RectF(2*d,height/2f-h/2,width-2*d,height/2f+h/2)
-        fill.color=Color.WHITE;fill.alpha=if(isPressed)210 else 255;sprites.draw(c,name,face,fill)
+        val d=resources.displayMetrics.density
+        val skin=if(!isEnabled)gray else if(primary)gold else green
+        // Fit the whole family into one envelope so changing skin never moves or
+        // resizes the solid face. Keep its glow/shadow inside the 48 dp touch target.
+        val w=(width-4*d).coerceAtLeast(0f)/(1+leftBleed+rightBleed)
+        val h=min((height-2*d).coerceAtLeast(0f),46*d)/(1+topBleed+bottomBleed)
+        val top=height/2f-h*(1+topBleed+bottomBleed)/2+h*topBleed
+        val face=RectF(width/2f-w/2,top,width/2f+w/2,top+h)
+        val src=sprites.rect(skin.name)
+        val sx=w/skin.body.width();val sy=h/skin.body.height()
+        val artwork=RectF(face.left-skin.body.left*sx,face.top-skin.body.top*sy,
+            face.left+(src.width()-skin.body.left)*sx,face.top+(src.height()-skin.body.top)*sy)
+        fill.color=Color.WHITE;fill.alpha=if(isPressed&&isEnabled)210 else 255
+        sprites.draw(c,skin.name,artwork,fill)
         if(isFocused&&isEnabled){
             fill.alpha=255;fill.style=Paint.Style.STROKE;fill.strokeWidth=2*d;fill.color=0xfffff0a6.toInt()
             c.drawRoundRect(RectF(d,d,width-d,height-d),12*d,12*d,fill);fill.style=Paint.Style.FILL
         }
         val caption=text.toString()
         paint.getTextBounds(caption,0,caption.length,textBounds)
-        // Imported gray/green faces occupy the top 72 px; their bottom shadow is not the face.
-        val center=when(name){"xiaolu_button"->36f/94f;"xiaohui_button"->36f/90f;else->.515f}
-        val y=face.top+face.height()*center-textBounds.exactCenterY()
+        val y=face.centerY()-textBounds.exactCenterY()
         paint.textAlign=Paint.Align.CENTER;paint.style=Paint.Style.STROKE;paint.strokeWidth=1.4f*d;paint.color=if(isEnabled&&primary)0xff965512.toInt() else 0xff495472.toInt()
         c.drawText(caption,width/2f,y,paint);paint.style=Paint.Style.FILL;paint.color=Color.WHITE
         c.drawText(caption,width/2f,y,paint)
+    }
+}
+/** Keep the complete bidding/play row within its actual table zone on narrow displays. */
+class ActionRow(context:Context):android.widget.LinearLayout(context){
+    private data class Preferred(val width:Int,val left:Int,val right:Int)
+    private val preferred=java.util.IdentityHashMap<View,Preferred>()
+    init {
+        gravity=android.view.Gravity.CENTER
+        isBaselineAligned=false
+        minimumHeight=(48*resources.displayMetrics.density+.5f).toInt()
+    }
+    override fun onViewRemoved(child:View){super.onViewRemoved(child);preferred.remove(child)}
+    override fun onMeasure(widthMeasureSpec:Int,heightMeasureSpec:Int){
+        val visible=(0 until childCount).map{getChildAt(it)}.filter{it.visibility!=View.GONE}
+        for(child in visible){
+            val p=child.layoutParams as LayoutParams
+            preferred.getOrPut(child){Preferred(p.width.coerceAtLeast(1),p.leftMargin,p.rightMargin)}
+        }
+        val available=(MeasureSpec.getSize(widthMeasureSpec)-paddingLeft-paddingRight).coerceAtLeast(0)
+        val widths=visible.sumOf{preferred.getValue(it).width}
+        val margins=visible.sumOf{preferred.getValue(it).let{p->p.left+p.right}}
+        val constrained=MeasureSpec.getMode(widthMeasureSpec)!=MeasureSpec.UNSPECIFIED
+        val compact=constrained && widths+margins>available
+        // Reduce gaps before shrinking captions. Original preferences are retained so
+        // a later wider measure (or fewer actions) restores the normal button sizes.
+        val gapScale=if(compact).25f else 1f
+        val usedMargins=visible.sumOf{preferred.getValue(it).let{p->(p.left*gapScale).toInt()+(p.right*gapScale).toInt()}}
+        val scale=if(constrained&&widths>0)min(1f,(available-usedMargins).coerceAtLeast(0).toFloat()/widths) else 1f
+        for(child in visible){
+            val p=child.layoutParams as LayoutParams;val original=preferred.getValue(child)
+            p.width=(original.width*scale).toInt().coerceAtLeast(1)
+            p.leftMargin=(original.left*gapScale).toInt();p.rightMargin=(original.right*gapScale).toInt()
+        }
+        super.onMeasure(widthMeasureSpec,heightMeasureSpec)
     }
 }
 /** Text remains available to accessibility and UI automation while a matching sprite is drawn. */
@@ -178,7 +233,8 @@ class ReferenceTable(context:Context):ViewGroup(context){
     private val zones=mutableListOf<Zone>()
     private var safe=Rect()
     private val buttonTouches=TableButtonTouchDelegate(this)
-    init { touchDelegate=buttonTouches }
+    // Hand and kitty cards fly beyond their slot containers while remaining on the table.
+    init { touchDelegate=buttonTouches;clipChildren=false }
     override fun onApplyWindowInsets(insets:android.view.WindowInsets):android.view.WindowInsets{
         val next=if(android.os.Build.VERSION.SDK_INT>=28)insets.displayCutout?.let{Rect(it.safeInsetLeft,it.safeInsetTop,it.safeInsetRight,it.safeInsetBottom)}?:Rect() else Rect()
         if(next!=safe){safe=next;requestLayout()}

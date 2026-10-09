@@ -126,8 +126,8 @@ class HandLayout(context:Context):ViewGroup(context) {
     private var before=booleanArrayOf();private var selectRange=true
     private var gestureCards=emptyList<View>();private var captured=false;private var pointerId=-1
     private val slop=android.view.ViewConfiguration.get(context).scaledTouchSlop
-    // Deal animation flies each card in from the deck, so it must draw outside this row's bounds.
-    init{clipChildren=false}
+    // Padding has its own clip: disabling child clipping alone still cuts off airborne cards.
+    init{clipChildren=false;clipToPadding=false}
     override fun onMeasure(ws:Int,hs:Int){
         val w=MeasureSpec.getSize(ws);val h=MeasureSpec.getSize(hs);setMeasuredDimension(w,h)
         val d=resources.displayMetrics.density
@@ -231,11 +231,17 @@ class CardStrip(context:Context,private val art:CardArt,private val maxColumns:I
     }
 }
 
-/** Transient layer for cards flying to seats that never draw their own hand. Children are laid out at
- *  the origin and positioned with x/y, so one timeline can move them with plain translation. */
+/** Transient cards use this safe-area-local coordinate space, rather than the full window. */
 class DealLayer(context:Context):ViewGroup(context){
     var cardWidth=1;var cardHeight=1
     init{clipChildren=false}
+    /** Flight pivots depend on painted card bounds, so new children need a size before frame zero. */
+    fun addCard(card:CardFace){
+        card.importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
+        addView(card)
+        card.measure(MeasureSpec.makeMeasureSpec(cardWidth.coerceAtLeast(1),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(cardHeight.coerceAtLeast(1),MeasureSpec.EXACTLY))
+        card.layout(0,0,card.measuredWidth,card.measuredHeight)
+    }
     override fun onMeasure(ws:Int,hs:Int){
         setMeasuredDimension(MeasureSpec.getSize(ws),MeasureSpec.getSize(hs))
         val w=MeasureSpec.makeMeasureSpec(cardWidth.coerceAtLeast(1),MeasureSpec.EXACTLY)

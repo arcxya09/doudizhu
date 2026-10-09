@@ -14,6 +14,7 @@ import android.graphics.drawable.GradientDrawable
 import android.util.AtomicFile
 import android.view.Gravity
 import android.view.View
+import android.view.ViewTreeObserver
 import android.view.WindowManager
 import android.widget.*
 import java.io.*
@@ -29,9 +30,8 @@ private const val DEAL_ROUND_STAGGER=20f
 private const val DEAL_FLIGHT=260f
 /** The kitty follows the last round; the cue has no beat for it. */
 private const val DEAL_KITTY_LEAD=70f
-/** One card in flight. Hand and bottom cards translate from the deck back to their own slot; cards in
- *  the transient layer are positioned absolutely because their seat never draws a hand. */
-private class DealFlight(val launch:Float,val duration:Float,val fromX:Float,val fromY:Float,val targetX:Float,val targetY:Float,val view:View,val inLayer:Boolean,val player:Int)
+/** Endpoints are painted-face centers in the card's parent, never view top-left coordinates. */
+private class DealFlight(val launch:Float,val duration:Float,val fromX:Float,val fromY:Float,val targetX:Float,val targetY:Float,val view:CardFace,val player:Int,val targetScale:Float=1f)
 // Frozen legacy record written by builds up to v3.6.0. Its field list and serialVersionUID must not
 // change: the release upgrade check reads it and requires the file to stay byte-identical.
 internal data class SavedTable(val game:Game,val games:Int,val wins:Int,val score:Int):Serializable {
@@ -80,6 +80,8 @@ class MainActivity: Activity() {
     private var dealPending=false
     private lateinit var dealLayer:DealLayer
     private var dealAnimator:android.animation.ValueAnimator?=null
+    private var dealPreDraw:ViewTreeObserver.OnPreDrawListener?=null
+    private var dealGeometry=emptyList<Int>()
     private val dealFlights=mutableListOf<DealFlight>()
     private val handFlights=mutableListOf<DealFlight>()
     private val bottomFlights=mutableListOf<DealFlight>()
@@ -146,11 +148,15 @@ class MainActivity: Activity() {
         table=ReferenceTable(this);setContentView(table)
         table.place(TableBackdrop(this),0f,0f,1f,1f)
         fun label(value:String,size:Float=17f,color:Int=Color.WHITE)=text(value,size,color).apply{
+            tag="table-label";minimumHeight=dp(19)
             maxLines=1;setTypeface(null,Typeface.BOLD);setAutoSizeTextTypeUniformWithConfiguration(minOf(10,size.toInt()-1),size.toInt(),1,android.util.TypedValue.COMPLEX_UNIT_SP)
             setShadowLayer(dp(1).toFloat(),0f,dp(1).toFloat(),0xff274979.toInt())
         }
         fun tool(label:String,icon:Int,action:()->Unit)=Button(this).apply{
             text=label;textSize=10f;isAllCaps=false;gravity=Gravity.CENTER;includeFontPadding=false;setTextColor(Color.WHITE);setTypeface(null,Typeface.NORMAL)
+            // The top drawable uses 16 dp of this compact button's height. Fit the
+            // remaining single line as well as its width when system text is larger.
+            maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(8,10,1,android.util.TypedValue.COMPLEX_UNIT_SP)
             setShadowLayer(dp(1).toFloat(),0f,dp(1).toFloat(),0xff26467b.toInt());background=null
             minWidth=0;minimumWidth=0;minHeight=0;minimumHeight=0;setPadding(0,0,0,0)
             setCompoundDrawablesWithIntrinsicBounds(null,TableIcon(icon,dp(16)),null,null)
@@ -164,8 +170,8 @@ class MainActivity: Activity() {
         val clear=tool("重选",1){selected.clear();render()}
         val options=tool("设置",3){showSettings()}
         listOf(clear,autoButton,options).forEachIndexed{i,v->table.place(v,.709f+i*.052f,.003f,.047f,.11f)}
-        updateBadge=text("新",9f,gold).apply{visibility=View.GONE;contentDescription="设置中有新版本";importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
-        table.place(updateBadge!!,.848f,.005f,.02f,.028f)
+        updateBadge=text("新",9f,gold).apply{maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(7,9,1,android.util.TypedValue.COMPLEX_UNIT_SP);visibility=View.GONE;contentDescription="设置中有新版本";importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
+        table.place(updateBadge!!,.848f,.005f,.02f,.055f)
         table.place(TableWordmark(this),.425f,.198f,.15f,.18f)
         stakes=label("",12f,0xffeef4ff.toInt()).apply{background=background(0x60304368)};table.place(stakes,.32f,.38f,.36f,.04f)
         val self=SeatAvatar(this,"seat_self.webp");val left=SeatAvatar(this,"seat_left.webp");val right=SeatAvatar(this,"seat_right.webp")
@@ -173,10 +179,15 @@ class MainActivity: Activity() {
         table.place(left,.047f,.255f,.066f,.143f);table.place(right,.89f,.255f,.066f,.143f)
         for(p in 1..2){
             val x=if(p==1).045f else .885f
-            val badge=label("",9f).apply{background=RoleBadge()};badges.add(badge)
+            val badge=label("",9f).apply{minimumHeight=dp(16);background=RoleBadge()};badges.add(badge)
             table.place(badge,x+.005f,.405f,.067f,.042f)
-            val name=label(names[p],12f).apply{tag="opponent-text"};seatNames.add(name);table.place(name,x,.448f,.08f,.06f)
-            val local=label("",10f,0xffffe77b.toInt());difficultyLabels.add(local);table.place(local,x,.51f,.08f,.05f)
+            // The short landscape bands can be smaller than the minimum autosize
+            // Chinese fallback-font line at 1.3x text size.
+            // Keep enough height for those lines and separate the name and difficulty.
+            val name=label(names[p],12f).apply{tag="opponent-text";minimumHeight=dp(20)}
+            seatNames.add(name);table.place(name,x,.463f,.08f,.06f)
+            val local=label("",10f,0xffffe77b.toInt()).apply{minimumHeight=dp(18)}
+            difficultyLabels.add(local);table.place(local,x,.539f,.08f,.05f)
             val count=label("",17f).apply{tag="opponent-text";background=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,intArrayOf(0xff70a7d3.toInt(),0xff467db2.toInt())).apply{cornerRadius=dp(2).toFloat();setStroke(dp(1),0xffc6eaff.toInt())}}
             counts.add(count);table.place(count,if(p==1).122f else .856f,.41f,.025f,.071f)
             val cue=GameCueLabel(this).apply{textSize=25f;gravity=Gravity.CENTER;setTextColor(0xffc2f1ff.toInt());tag="opponent-text";setTypeface(null,Typeface.BOLD_ITALIC)};cues.add(cue)
@@ -191,7 +202,7 @@ class MainActivity: Activity() {
             background=background(0xb0223554.toInt())
             accessibilityLiveRegion=View.ACCESSIBILITY_LIVE_REGION_POLITE
         };table.place(notice,.29f,.126f,.42f,.062f)
-        actions=LinearLayout(this).apply{gravity=Gravity.CENTER;clipChildren=false;minimumHeight=dp(48)};table.place(actions,.19f,.465f,.62f,.132f)
+        actions=ActionRow(this);table.place(actions,.19f,.465f,.62f,.132f)
         hand=HandLayout(this).apply{contentDescription="我的手牌，点击或横滑选择，再点出牌";setPadding(0,dp(2),0,0)};table.place(hand,.048f,.585f,.904f,.332f)
         table.place(View(this).apply{setBackgroundColor(0x38303c69)},0f,.934f,1f,.066f)
         table.place(self,.047f,.846f,.069f,.137f)
@@ -200,7 +211,7 @@ class MainActivity: Activity() {
         selection=label("",12f).apply{accessibilityLiveRegion=View.ACCESSIBILITY_LIVE_REGION_POLITE};table.place(selection,.445f,.938f,.29f,.052f)
         record=label("",11f,0xffdbebff.toInt()).apply{visibility=View.GONE};table.place(record,.585f,.015f,.18f,.052f)
         multiple=label("",17f,0xffffe591.toInt()).apply{background=background(0x55402f55)};table.place(multiple,.75f,.939f,.12f,.05f)
-        val help=Button(this).apply{text="帮助";textSize=13f;isAllCaps=false;includeFontPadding=false;maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(10,13,1,android.util.TypedValue.COMPLEX_UNIT_SP);setTextColor(Color.WHITE);background=background(0xff53c99c.toInt(),0xffa4edce.toInt());minHeight=0;minimumHeight=0;minWidth=0;minimumWidth=0;setPadding(0,0,0,0);setOnClickListener{showHelp()}}
+        val help=Button(this).apply{text="帮助";textSize=13f;isAllCaps=false;includeFontPadding=false;maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(8,13,1,android.util.TypedValue.COMPLEX_UNIT_SP);setTextColor(Color.WHITE);background=background(0xff53c99c.toInt(),0xffa4edce.toInt());minHeight=0;minimumHeight=0;minWidth=0;minimumWidth=0;setPadding(0,0,0,0);setOnClickListener{showHelp()}}
         table.place(help,.893f,.938f,.077f,.055f)
         effectBanner=label("",28f,0xffffd35b.toInt()).apply{alpha=0f;setTypeface(null,Typeface.BOLD_ITALIC);setShadowLayer(dp(2).toFloat(),0f,dp(2).toFloat(),0xff564222.toInt())}
         table.place(effectBanner,.32f,.345f,.36f,.09f)
@@ -232,7 +243,7 @@ class MainActivity: Activity() {
             seatNames[p-1].text=names[p]
             badges[p-1].text=role(p).ifEmpty{"电脑"}
             difficultyLabels[p-1].text=levels[game.level]
-            turnClocks[p-1].visibility=if(game.turn==p && game.phase in listOf("bid","play"))View.VISIBLE else View.INVISIBLE
+            turnClocks[p-1].visibility=if(!dealing && game.turn==p && game.phase in listOf("bid","play"))View.VISIBLE else View.INVISIBLE
             val shown=if(dealing)0 else game.hands[p].size
             counts[p-1].text=shown.toString();counts[p-1].contentDescription="${names[p]}剩余${shown}张牌"
             counts[p-1].setTextColor(if(!dealing&&shown<=2)0xffffdd7b.toInt() else Color.WHITE)
@@ -246,6 +257,9 @@ class MainActivity: Activity() {
         bottom.visibility=if(dealing)View.VISIBLE else counter.visibility
         for(p in 0..2){seatCards[p].visibility=if(game.turn==p && game.phase!="over")View.INVISIBLE else View.VISIBLE;people[p].active=game.turn==p&&game.phase!="over";seatCards[p].show(displayCards(seatMoves[p]));seatCards[p].contentDescription="${names[p]}出牌："+seatMoves[p].joinToString("、"){Rules.cardName(it)}}
         bottom.show(if(game.landlord<0)listOf(54,54,54) else game.bottom.asReversed())
+        if(dealing)for(i in 0 until bottom.childCount)bottom.getChildAt(i).alpha=0f
+        dealLayer.isClickable=dealing
+        dealLayer.importantForAccessibility=if(dealing)View.IMPORTANT_FOR_ACCESSIBILITY_YES else View.IMPORTANT_FOR_ACCESSIBILITY_NO
         notice.text=if(dealing)"正在发牌 · 点击桌面跳过" else when(game.phase){
             "bid"->if(game.turn==0)if(autoPlay)"托管中 · 正在叫分" else "轮到你叫分 · 最高 ${game.highBid} 分" else "${names[game.turn]}正在叫分"
             "redeal"->"无人叫分，重新发牌"
@@ -257,6 +271,7 @@ class MainActivity: Activity() {
         selected.retainAll(game.hands[0].toSet());hand.removeAllViews()
         displayCards(game.hands[0]).forEach { card->
             val face=CardFace(this,art,card,true);face.bottomCard=game.landlord==0 && card in game.bottom;face.isSelected=card in selected;face.isEnabled=game.phase=="play"&&game.turn==0&&!autoPlay
+            if(dealing)face.alpha=0f
             face.setOnClickListener{audio.cue("select");if(card in selected)selected.remove(card) else selected.add(card);face.isSelected=card in selected;refreshSelection()}
             hand.addView(face)
         }
@@ -336,7 +351,8 @@ class MainActivity: Activity() {
     private fun fresh(){
         handler.removeCallbacksAndMessages(null);seatMoves=Array(3){emptyList()}
         // Cancelling invokes animation-end listeners: detach them before replacing the game.
-        dealAnimator?.removeAllListeners();dealAnimator?.removeAllUpdateListeners();dealAnimator?.cancel();dealAnimator=null
+        cancelDealTimeline()
+        dealFlights.clear();handFlights.clear();bottomFlights.clear();dealLayer.removeAllViews()
         effectBanner.animate().cancel();effectBanner.alpha=0f
         game=Game.create(nextLevel);selected.clear();persist()
         dealing=true;dealPending=true;render();audio.requestDeal();startDeal()
@@ -345,34 +361,59 @@ class MainActivity: Activity() {
     private fun startDeal(){
         if(!dealing)return
         dealPending=false
-        dealAnimator?.cancel();dealAnimator=null
-        hand.post{
-            if(!dealing||isFinishing||isDestroyed)return@post
+        cancelDealTimeline()
+        // A posted runnable can run before the new hand has been laid out, or outlive a skipped
+        // deal. Pre-draw gives every anchor its final safe-area coordinates and is cancellable.
+        val listener=ViewTreeObserver.OnPreDrawListener {
+            if(!dealing||isFinishing||isDestroyed){cancelDealTimeline();true}
+            else if(dealAnimator==null){prepareDeal();true}
+            else if(dealLayoutGeometry()!=dealGeometry){endDeal();false}
+            else true
+        }
+        dealPreDraw=listener;table.viewTreeObserver.addOnPreDrawListener(listener);table.invalidate()
+    }
+    private fun cancelDealTimeline(){
+        dealPreDraw?.let{if(table.viewTreeObserver.isAlive)table.viewTreeObserver.removeOnPreDrawListener(it)};dealPreDraw=null
+        dealAnimator?.let{it.removeAllListeners();it.removeAllUpdateListeners();it.cancel()};dealAnimator=null
+    }
+    /** Include nested card slots: a resized window or safe inset settles the deal before it draws
+     *  with old geometry. Text updates and unrelated toolbar relayouts keep the timeline running. */
+    private fun dealLayoutGeometry():List<Int>{
+        val anchors=listOf<View>(table,dealLayer,hand,bottom)+counts+
+            (0 until hand.childCount).map{hand.getChildAt(it)}+(0 until bottom.childCount).map{bottom.getChildAt(it)}
+        return anchors.flatMap{listOf(System.identityHashCode(it),it.left,it.top,it.width,it.height)}
+    }
+    private fun prepareDeal(){
             dealLayer.removeAllViews();dealFlights.clear();handFlights.clear();bottomFlights.clear()
-            val tableW=table.width.toFloat();val tableH=table.height.toFloat()
-            val cardH=hand.getChildAt(0)?.height?:0
-            if(tableW<=0f||tableH<=0f||cardH<=0){endDeal();return@post}
-            val deckX=tableW*.5f;val deckY=tableH*.30f
-            val handDeckX=deckX-hand.left;val handDeckY=deckY-hand.top
-            val bottomDeckX=deckX-bottom.left;val bottomDeckY=deckY-bottom.top
-            dealLayer.cardWidth=(cardH*CardFace.WIDTH_HEIGHT_RATIO).toInt().coerceAtLeast(1);dealLayer.cardHeight=cardH
-            val seatX=floatArrayOf(0f,tableW*.15f,tableW*.85f);val seatY=floatArrayOf(0f,tableH*.45f,tableH*.45f)
+            val first=hand.getChildAt(0) as? CardFace
+            if(dealLayer.width<=0||dealLayer.height<=0||first==null||first.height<=0){endDeal();return}
+            // The overlay occupies ReferenceTable's safe rectangle; its origin is not always (0,0).
+            val deckX=dealLayer.left+dealLayer.width*.5f;val deckY=dealLayer.top+dealLayer.height*.30f
+            dealLayer.cardWidth=first.width;dealLayer.cardHeight=first.height
+            fun flight(launch:Float,view:CardFace,parent:View,targetX:Float,targetY:Float,player:Int,targetScale:Float=1f):DealFlight{
+                val face=view.faceBounds();view.pivotX=face.centerX();view.pivotY=face.centerY()
+                return DealFlight(launch,DEAL_FLIGHT,deckX-parent.left,deckY-parent.top,targetX,targetY,view,player,targetScale)
+            }
             for(round in DEAL_BEATS.indices)for(p in 0..2){
                 val launch=DEAL_BEATS[round]+p*DEAL_ROUND_STAGGER
                 if(p==0){
-                    val v=hand.getChildAt(round)?:continue
-                    DealFlight(launch,DEAL_FLIGHT,handDeckX,handDeckY,v.left.toFloat(),v.top.toFloat(),v,false,0).also{dealFlights.add(it);handFlights.add(it)}
+                    val v=hand.getChildAt(round) as? CardFace?:continue;val face=v.faceBounds()
+                    flight(launch,v,hand,v.left+face.centerX(),v.top+face.centerY(),0).also{dealFlights.add(it);handFlights.add(it)}
                 }else{
-                    val back=CardFace(this,art,54);dealLayer.addView(back)
-                    dealFlights.add(DealFlight(launch,DEAL_FLIGHT,deckX,deckY,seatX[p],seatY[p],back,true,p))
+                    val back=CardFace(this,art,54);dealLayer.addCard(back)
+                    val badge=counts[p-1];val face=back.faceBounds()
+                    val targetX=badge.left+badge.width/2f-dealLayer.left;val targetY=badge.top+badge.height/2f-dealLayer.top
+                    val scale=minOf(badge.width/face.width(),badge.height/face.height(),1f)
+                    dealFlights.add(flight(launch,back,dealLayer,targetX,targetY,p,scale))
                 }
             }
             val kittyLead=DEAL_BEATS.last()+DEAL_KITTY_LEAD
             for(i in 0 until Math.min(3,bottom.childCount)){
-                val v=bottom.getChildAt(i)
-                DealFlight(kittyLead+i*DEAL_ROUND_STAGGER,DEAL_FLIGHT,bottomDeckX,bottomDeckY,v.left.toFloat(),v.top.toFloat(),v,false,-1).also{dealFlights.add(it);bottomFlights.add(it)}
+                val v=bottom.getChildAt(i) as CardFace;val face=v.faceBounds()
+                flight(kittyLead+i*DEAL_ROUND_STAGGER,v,bottom,v.left+face.centerX(),v.top+face.centerY(),-1).also{dealFlights.add(it);bottomFlights.add(it)}
             }
             dealLayer.isClickable=true
+            dealGeometry=dealLayoutGeometry()
             applyDeal(0f)
             val total=kittyLead+2*DEAL_ROUND_STAGGER+DEAL_FLIGHT
             dealAnimator=android.animation.ValueAnimator.ofFloat(0f,total).apply{
@@ -381,30 +422,32 @@ class MainActivity: Activity() {
                 addListener(object:android.animation.AnimatorListenerAdapter(){
                     override fun onAnimationEnd(animation:android.animation.Animator){endDeal()}
                 })
-                start()
             }
-        }
+            // Assign before start: disabled system animations may invoke onAnimationEnd immediately.
+            dealAnimator?.start()
     }
     /** One timeline drives every card, so skipping lands them all in their final positions at once. */
     private fun applyDeal(t:Float){
-        val arc=table.height*.06f
+        val arc=dealLayer.height*.06f
         for(f in dealFlights){
             val moving=t>=f.launch
             val p=if(moving)((t-f.launch)/f.duration).coerceIn(0f,1f) else 0f
-            if(!moving){
-                f.view.alpha=0f;f.view.scaleX=.82f;f.view.scaleY=.82f
-                if(f.inLayer){f.view.x=f.fromX;f.view.y=f.fromY}
-                else{f.view.translationX=f.fromX-f.targetX;f.view.translationY=f.fromY-f.targetY}
-                continue
-            }
-            val eased=p*p*(3-2*p);val bow=(-arc*Math.sin(Math.PI*p)).toFloat();val scale=.82f+.18f*eased
-            f.view.alpha=(p/.4f).coerceAtMost(1f);f.view.scaleX=scale;f.view.scaleY=scale
-            if(f.inLayer){f.view.x=f.fromX+(f.targetX-f.fromX)*eased;f.view.y=f.fromY+(f.targetY-f.fromY)*eased+bow}
-            else{f.view.translationX=(f.fromX-f.targetX)*(1-eased);f.view.translationY=(f.fromY-f.targetY)*(1-eased)+bow}
+            val eased=p*p*(3-2*p);val bow=if(p==0f||p==1f)0f else (-arc*Math.sin(Math.PI*p)).toFloat()
+            val scale=.82f+(f.targetScale-.82f)*eased
+            val fade=if(f.player>0)((1f-p)/.22f).coerceIn(0f,1f) else 1f
+            f.view.alpha=if(moving)(p/.4f).coerceAtMost(1f)*fade else 0f
+            f.view.scaleX=scale;f.view.scaleY=scale
+            // Scaling is about the actual face center, so different card sizes share the same deck
+            // and an opponent's back shrinks into the badge without drifting right and down.
+            f.view.x=f.fromX+(f.targetX-f.fromX)*eased-f.view.pivotX
+            f.view.y=f.fromY+(f.targetY-f.fromY)*eased+bow-f.view.pivotY
         }
         applyStrip(handFlights,t,hand.stride)
         applyStrip(bottomFlights,t,bottom.cardStride())
-        for(p in 1..2)counts[p-1].text=dealFlights.count{f->f.player==p&&t>=f.launch+f.duration}.toString()
+        for(p in 1..2){
+            val count=dealFlights.count{f->f.player==p&&t>=f.launch+f.duration}
+            counts[p-1].text=count.toString();counts[p-1].contentDescription="${names[p]}剩余${count}张牌"
+        }
         selfName.text="我 · ${dealFlights.count{f->f.player==0&&t>=f.launch+f.duration}}张"
     }
     /** A row card normally draws its rank inside the strip its right neighbour leaves free, which
@@ -412,16 +455,17 @@ class MainActivity: Activity() {
      *  whole face instead, and returns to the strip the moment the next card covers it. */
     private fun applyStrip(flights:List<DealFlight>,t:Float,stride:Float){
         for(i in flights.indices){
-            val face=flights[i].view as? CardFace?:continue
+            val face=flights[i].view
             val settled=i==flights.size-1||t>=flights[i+1].launch+flights[i+1].duration
             val want=if(settled)stride else 0f
-            if(face.indexWidth!=want){face.indexWidth=want;face.showBody=settled;face.invalidate()}
+            val body=!settled||i==flights.size-1
+            if(face.indexWidth!=want||face.showBody!=body){face.indexWidth=want;face.showBody=body;face.invalidate()}
         }
     }
     private fun endDeal(){
         if(!dealing)return
         dealing=false;dealPending=false
-        dealAnimator?.let{it.removeAllUpdateListeners();it.cancel()};dealAnimator=null
+        cancelDealTimeline()
         for(f in dealFlights){f.view.alpha=1f;f.view.scaleX=1f;f.view.scaleY=1f;f.view.translationX=0f;f.view.translationY=0f}
         dealFlights.clear();handFlights.clear();bottomFlights.clear();dealLayer.removeAllViews();dealLayer.isClickable=false
         render();schedule()
@@ -569,7 +613,7 @@ class MainActivity: Activity() {
     }
     override fun onResume(){super.onResume();running=true;if(::audio.isInitialized)audio.resume();if(::game.isInitialized){if(dealPending)startDeal();schedule()};if(::updates.isInitialized)updates.onResume()}
     override fun onPause(){running=false;if(::updates.isInitialized)updates.onPause();handler.removeCallbacksAndMessages(null);if(dealing)endDeal();if(::audio.isInitialized)audio.pause();if(::game.isInitialized)persist();super.onPause()}
-    override fun onDestroy(){if(::updates.isInitialized)updates.close();handler.removeCallbacksAndMessages(null);dealAnimator?.cancel();dealAnimator=null;if(::audio.isInitialized)audio.release();super.onDestroy()}
+    override fun onDestroy(){if(::updates.isInitialized)updates.close();handler.removeCallbacksAndMessages(null);if(::table.isInitialized)cancelDealTimeline();if(::audio.isInitialized)audio.release();super.onDestroy()}
     private fun handleBack(){
         if(modal)return;modal=true;handler.removeCallbacksAndMessages(null)
         AlertDialog.Builder(this).setTitle("暂时离开牌桌？").setMessage("当前牌局已经保存，下次打开继续。").setPositiveButton("离开"){_,_->finish()}.setNegativeButton("继续玩",null).create().apply{setOnDismissListener{modal=false;schedule()};show()}
@@ -612,6 +656,10 @@ class MainActivity: Activity() {
     internal fun testSuspendTurns(){running=false;handler.removeCallbacksAndMessages(null)}
     internal fun testDealing():Boolean=dealing
     internal fun testDealAnimating():Boolean=dealAnimator?.isRunning==true
+    /** A frozen frame makes geometry assertions independent of emulator timing and animation scale. */
+    internal fun testDealAt(time:Float){dealAnimator?.pause();applyDeal(time)}
+    internal fun testDealCards(player:Int):List<CardFace> = dealFlights.filter{it.player==player}.map{it.view}
+    internal fun testDealCounter(player:Int):TextView=counts[player-1]
     /** Redraws after a test has rewritten the table state directly. */
     internal fun testRender(){render()}
     internal fun testDealLayer():DealLayer=dealLayer

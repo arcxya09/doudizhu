@@ -584,8 +584,8 @@ class NativeUiTest {
             val actionRect = Rect()
             assertTrue(activity.actions.getGlobalVisibleRect(actionRect))
             assertTrue("Controls clipped", actionRect.bottom <= decor.height)
-            for (v in all(decor).filterIsInstance<TextView>().filter { it.tag == "opponent-text" }) {
-                assertTrue("Opponent text clipped: ${v.text}", v.layout != null &&
+            for (v in all(decor).filterIsInstance<TextView>().filter { it.isShown && it.text.isNotEmpty() && (it.tag == "opponent-text" || it.tag == "table-label") }) {
+                assertTrue("Opponent text clipped: ${v.text} height=${v.height} textSize=${v.textSize} lineBottom=${v.layout?.getLineBottom(v.lineCount - 1)}", v.layout != null &&
                     v.layout.getLineBottom(v.lineCount - 1) <= v.height - v.compoundPaddingTop - v.compoundPaddingBottom)
             }
             assertEquals("Three round portraits",3,all(decor).filterIsInstance<SeatAvatar>().size)
