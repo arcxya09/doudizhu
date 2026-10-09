@@ -1,5 +1,5 @@
 plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
-def applicationVersionCode = 24
+def applicationVersionCode = 25
 def resolvedVersionCode = (project.findProperty('ddzVersionCode') ?: applicationVersionCode).toString().toInteger()
 def releaseSecretNames = ['DDZ_KEYSTORE_PATH', 'DDZ_STORE_PASSWORD', 'DDZ_KEY_ALIAS', 'DDZ_KEY_PASSWORD']
 def hasReleaseSigning = releaseSecretNames.every { System.getenv(it)?.trim() }
@@ -21,7 +21,7 @@ android {
         minSdk 26
         targetSdk 35
         versionCode resolvedVersionCode
-        versionName '3.6.5'
+        versionName '3.7.0'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     signingConfigs {
@@ -60,4 +60,5 @@ dependencies {
 // without this a rename slips through locally and only fails much later in the signed release job.
 tasks.withType(Test).configureEach {
     inputs.file(rootProject.file('scripts/check-release-upgrade.sh')).withPathSensitivity(PathSensitivity.RELATIVE).optional()
+    inputs.file(rootProject.file('scripts/UpgradeSnapshotCheck.java')).withPathSensitivity(PathSensitivity.RELATIVE).optional()
 }

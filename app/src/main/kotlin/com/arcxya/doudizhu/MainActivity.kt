@@ -38,22 +38,8 @@ internal data class SavedTable(val game:Game,val games:Int,val wins:Int,val scor
     companion object{private const val serialVersionUID=6861108738685167990L}
 }
 // Current snapshot. The format tag lets a later build migrate a stored table instead of dropping it.
-internal data class TableSnapshot(val format:Int,val game:Game):Serializable {
+internal data class TableSnapshot(val format:Int,val game:Game,val record:MatchRecord?=null):Serializable {
     companion object{private const val serialVersionUID=1L}
-}
-/** A stored table is only used when it is internally consistent. render() indexes level, turn and the
- *  hands directly, so a truncated or hand-edited record must be rejected instead of crashing. */
-internal fun usableTable(g:Game?):Boolean{
-    if(g==null)return false
-    if(g.level !in 0..2 || g.turn !in 0..2 || g.lastPlayer !in -1..2)return false
-    if(g.landlord !in -1..2 || g.bidder !in -1..2)return false
-    if(g.phase !in setOf("bid","redeal","play","over"))return false
-    if(g.hands.size!=3 || g.bottom.size!=3 || g.status.size!=3 || g.played.size!=3)return false
-    if(g.bottom.toSet().size!=3 || g.bottom.any{it !in 0..53})return false
-    if(g.hands.any{h->h.size>20 || h.toSet().size!=h.size || h.any{it !in 0..53}})return false
-    if(g.phase=="play"&&g.landlord<0)return false
-    if(g.phase!="over"&&g.hands.any{it.isEmpty()})return false
-    return true
 }
 class MainActivity: Activity() {
     internal lateinit var game:Game
@@ -115,7 +101,7 @@ class MainActivity: Activity() {
         minHeight=dp(48);minimumHeight=dp(48);minWidth=0;minimumWidth=0
         setPadding(dp(10),dp(8),dp(10),dp(8));setOnClickListener{action()}
     }
-    private fun buttonEnabled(b:Button,value:Boolean){b.isEnabled=value;b.alpha=if(value)1f else .54f}
+    private fun buttonEnabled(b:Button,value:Boolean){b.isEnabled=value;b.alpha=1f}
     override fun onCreate(savedInstanceState:Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -171,7 +157,7 @@ class MainActivity: Activity() {
         table.place(back,.036f,.008f,.058f,.10f)
         counter=RankCounter(this);table.place(counter,.145f,.01f,.31f,.084f)
         bottom=CardStrip(this,art).apply{contentDescription="地主底牌"};table.place(bottom,.46f,.009f,.09f,.088f)
-        autoButton=tool("托管",0){autoPlay=!autoPlay;render();schedule()}
+        autoButton=tool("托管",0){autoPlay=!autoPlay;selected.clear();render();schedule()}
         val clear=tool("重选",1){selected.clear();render()}
         val options=tool("设置",3){showSettings()}
         listOf(clear,autoButton,options).forEachIndexed{i,v->table.place(v,.709f+i*.052f,.003f,.047f,.11f)}
@@ -196,17 +182,20 @@ class MainActivity: Activity() {
             if(p==0)table.place(cards,.365f,.435f,.27f,.16f)
             else table.place(cards,if(p==1).174f else .550f,.25f,.28f,.164f)
         }
-        notice=label("",13f,0xffdaedff.toInt());table.place(notice,.29f,.50f,.42f,.078f)
+        notice=label("",14f,0xffffe6a3.toInt()).apply{
+            background=background(0xb0223554.toInt())
+            accessibilityLiveRegion=View.ACCESSIBILITY_LIVE_REGION_POLITE
+        };table.place(notice,.29f,.126f,.42f,.062f)
         actions=LinearLayout(this).apply{gravity=Gravity.CENTER;clipChildren=false;minimumHeight=dp(48)};table.place(actions,.19f,.465f,.62f,.132f)
         hand=HandLayout(this).apply{contentDescription="我的手牌，点击或横滑选择，再点出牌";setPadding(0,dp(2),0,0)};table.place(hand,.048f,.585f,.904f,.332f)
         table.place(View(this).apply{setBackgroundColor(0x38303c69)},0f,.934f,1f,.066f)
         table.place(self,.047f,.846f,.069f,.137f)
         selfName=label("",13f);table.place(selfName,.13f,.938f,.15f,.052f)
         info=label("",15f,0xffffe875.toInt()).apply{gravity=Gravity.CENTER_VERTICAL;setCompoundDrawablesWithIntrinsicBounds(CoinIcon(dp(15)),null,null,null);compoundDrawablePadding=dp(4)};table.place(info,.29f,.938f,.16f,.052f)
-        selection=label("",12f);table.place(selection,.45f,.938f,.26f,.052f)
+        selection=label("",12f).apply{accessibilityLiveRegion=View.ACCESSIBILITY_LIVE_REGION_POLITE};table.place(selection,.445f,.938f,.29f,.052f)
         record=label("",11f,0xffdbebff.toInt()).apply{visibility=View.GONE};table.place(record,.585f,.015f,.18f,.052f)
         multiple=label("",17f,0xffffe591.toInt()).apply{background=background(0x55402f55)};table.place(multiple,.75f,.939f,.12f,.05f)
-        val help=Button(this).apply{text="帮助";textSize=13f;isAllCaps=false;includeFontPadding=false;maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(10,13,1,android.util.TypedValue.COMPLEX_UNIT_SP);setTextColor(Color.WHITE);background=background(0xff53c99c.toInt(),0xffa4edce.toInt());minHeight=0;minimumHeight=0;minWidth=0;minimumWidth=0;setPadding(0,0,0,0);setOnClickListener{showSettings()}}
+        val help=Button(this).apply{text="帮助";textSize=13f;isAllCaps=false;includeFontPadding=false;maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(10,13,1,android.util.TypedValue.COMPLEX_UNIT_SP);setTextColor(Color.WHITE);background=background(0xff53c99c.toInt(),0xffa4edce.toInt());minHeight=0;minimumHeight=0;minWidth=0;minimumWidth=0;setPadding(0,0,0,0);setOnClickListener{showHelp()}}
         table.place(help,.893f,.938f,.077f,.055f)
         effectBanner=label("",28f,0xffffd35b.toInt()).apply{alpha=0f;setTypeface(null,Typeface.BOLD_ITALIC);setShadowLayer(dp(2).toFloat(),0f,dp(2).toFloat(),0xff564222.toInt())}
         table.place(effectBanner,.32f,.345f,.36f,.09f)
@@ -229,8 +218,10 @@ class MainActivity: Activity() {
     private fun render(){
         stakes.text="单机${levels[game.level]}场  底分：${if(game.highBid>0)game.highBid else "—"}"
         stakes.visibility=View.VISIBLE
-        notice.visibility=if(game.phase=="redeal")View.VISIBLE else View.INVISIBLE
+        notice.visibility=View.VISIBLE
         autoButton.text=if(autoPlay)"手动" else "托管"
+        autoButton.contentDescription=if(autoPlay)"取消托管，自己出牌" else "开启托管，由电脑代打"
+        autoButton.isSelected=autoPlay
         fun role(p:Int)=if(game.landlord<0)"" else if(game.landlord==p)"地主" else "农民"
         for(p in 1..2){
             seatNames[p-1].text=names[p]
@@ -239,6 +230,7 @@ class MainActivity: Activity() {
             turnClocks[p-1].visibility=if(game.turn==p && game.phase in listOf("bid","play"))View.VISIBLE else View.INVISIBLE
             val shown=if(dealing)0 else game.hands[p].size
             counts[p-1].text=shown.toString();counts[p-1].contentDescription="${names[p]}剩余${shown}张牌"
+            counts[p-1].setTextColor(if(!dealing&&shown<=2)0xffffdd7b.toInt() else Color.WHITE)
             cues[p-1].visibility=if(game.turn==p && game.phase!="over")View.INVISIBLE else View.VISIBLE
             cues[p-1].text=if(game.status[p] in listOf("不出","不叫")||game.phase=="bid")game.status[p].replace("等待叫分","") else ""
         }
@@ -249,8 +241,12 @@ class MainActivity: Activity() {
         bottom.visibility=if(dealing)View.VISIBLE else counter.visibility
         for(p in 0..2){seatCards[p].visibility=if(game.turn==p && game.phase!="over")View.INVISIBLE else View.VISIBLE;people[p].active=game.turn==p&&game.phase!="over";seatCards[p].show(displayCards(seatMoves[p]));seatCards[p].contentDescription="${names[p]}出牌："+seatMoves[p].joinToString("、"){Rules.cardName(it)}}
         bottom.show(if(game.landlord<0)listOf(54,54,54) else game.bottom.asReversed())
-        notice.text=if(dealing)"正在发牌…" else when(game.phase){"bid"->if(game.turn==0)"轮到你叫分" else "${names[game.turn]}正在叫分";"redeal"->"无人叫分，重新发牌";"over"->if(game.delta>0)"本局获胜" else "本局结束";else->if(game.turn==0)"轮到你出牌" else "${names[game.turn]}正在出牌"}
-        notice.announceForAccessibility(notice.text)
+        notice.text=if(dealing)"正在发牌 · 点击桌面跳过" else when(game.phase){
+            "bid"->if(game.turn==0)if(autoPlay)"托管中 · 正在叫分" else "轮到你叫分 · 最高 ${game.highBid} 分" else "${names[game.turn]}正在叫分"
+            "redeal"->"无人叫分，重新发牌"
+            "over"->if(game.delta>0)"本局获胜 · +${game.delta} 分" else "本局结束 · ${game.delta} 分"
+            else->if(game.turn==0)if(autoPlay)"托管中 · 正在出牌" else if(game.last==null)"轮到你 · 自由出牌" else "轮到你 · 接${names[game.lastPlayer]}的${game.last!!.kind.title}" else "${names[game.turn]}正在出牌"
+        }
         selfName.text=if(dealing)"我 · 0张" else "${role(0).ifEmpty{"我"}} · ${game.hands[0].size}张"
         info.text=score.toString();record.text="$wins 胜 / $games 局";multiple.text="×${game.multiplier} 倍"
         selected.retainAll(game.hands[0].toSet());hand.removeAllViews()
@@ -284,7 +280,16 @@ class MainActivity: Activity() {
     }
     private fun refreshSelection(){
         val m=Rules.classify(selected.toList());val valid=Rules.beats(m,game.last)
-        selection.text=if(selected.isEmpty())if(game.phase=="over")"本局 ${game.delta}" else "" else "已选 ${selected.size} 张 · ${m?.kind?.title?:"牌型不完整"}${if(m!=null&&!valid)" · 压不过上家" else ""}"
+        selection.text=if(selected.isEmpty())when{
+            dealing->"发牌中，点击桌面跳过"
+            game.phase=="over"->"本局 ${if(game.delta>0)"+" else ""}${game.delta} 分"
+            autoPlay->"电脑代打 · 点手动可接管"
+            game.phase=="bid"->"叫分越高，输赢底分越高"
+            game.turn!=0->"等待对手出牌"
+            game.last==null->"点选或滑选 · 自由出牌"
+            else->"点选手牌，或点提示"
+        } else "${selected.size} 张 · ${m?.kind?.title?:"牌型不完整"}${if(m!=null&&!valid)" · 压不过" else ""}"
+        selection.setTextColor(if(selected.isNotEmpty()&&!valid)0xffffd594.toInt() else Color.WHITE)
         playButton?.let{buttonEnabled(it,selected.isNotEmpty()&&valid)}
     }
     private fun humanBid(n:Int){if(game.turn!=0||game.phase!="bid")return;game.bid(n);audio.cue(AudioCues.forBid(n));advance()}
@@ -301,11 +306,11 @@ class MainActivity: Activity() {
     }
     private fun schedule(){
         handler.removeCallbacksAndMessages(null)
-        if(!running||modal||game.phase=="over")return
+        if(!running||modal||dealing||game.phase=="over")return
         if(game.phase=="redeal"){handler.postDelayed({fresh()},speed);return}
         if(game.turn==0&&!autoPlay)return
         handler.postDelayed({
-            if(!running||modal)return@postDelayed
+            if(!running||modal||dealing)return@postDelayed
             if(game.phase=="bid"){val bid=Rules.bid(game.hands[game.turn],game.highBid,game.level);game.bid(bid);audio.cue(AudioCues.forBid(bid))}
             else if(game.phase=="play"){val m=game.computer();val cue=AudioCues.forMove(m,game.hands[game.turn],game.last);playCards(m?.cards?:emptyList());audio.cue(cue)}
             advance()
@@ -325,8 +330,10 @@ class MainActivity: Activity() {
     }
     private fun fresh(){
         handler.removeCallbacksAndMessages(null);seatMoves=Array(3){emptyList()}
+        // Cancelling invokes animation-end listeners: detach them before replacing the game.
+        dealAnimator?.removeAllListeners();dealAnimator?.removeAllUpdateListeners();dealAnimator?.cancel();dealAnimator=null
+        effectBanner.animate().cancel();effectBanner.alpha=0f
         game=Game.create(nextLevel);selected.clear();persist()
-        dealAnimator?.cancel();dealAnimator=null
         dealing=true;dealPending=true;render();audio.requestDeal();startDeal()
     }
     /** Builds the timeline from the laid-out views, so every card lands exactly where it comes to rest. */
@@ -408,7 +415,7 @@ class MainActivity: Activity() {
     }
     private fun endDeal(){
         if(!dealing)return
-        dealing=false
+        dealing=false;dealPending=false
         dealAnimator?.let{it.removeAllUpdateListeners();it.cancel()};dealAnimator=null
         for(f in dealFlights){f.view.alpha=1f;f.view.scaleX=1f;f.view.scaleY=1f;f.view.translationX=0f;f.view.translationY=0f}
         dealFlights.clear();handFlights.clear();bottomFlights.clear();dealLayer.removeAllViews();dealLayer.isClickable=false
@@ -428,6 +435,21 @@ class MainActivity: Activity() {
         dialog.setOnDismissListener{modal=false;schedule()};dialog.show()
         dialog.window?.apply{setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));setLayout((resources.displayMetrics.widthPixels*.70f).toInt(),WindowManager.LayoutParams.WRAP_CONTENT)}
 
+    }
+    private fun showHelp(){
+        if(modal)return;modal=true;handler.removeCallbacksAndMessages(null)
+        val rules="点一下选牌，再点一下取消；横滑可连续选牌。点击“提示”选择建议组合，再点“出牌”确认。\n\n"+
+            "叫分：不叫 / 1 / 2 / 3 分，必须高于当前最高分；最高分者当地主，拿三张底牌并先出。\n\n"+
+            "接牌：同牌型、同张数比较大小；炸弹可压普通牌，王炸最大。两家连续不出后，上一位出牌者自由出牌。\n\n"+
+            "顺子至少 5 张、连对至少 3 对、飞机至少两组三张，主体不含 2 和王。飞机单翅可带对子，不能带双王或主体同点数牌；对翅须为不同点数对子。四带二可带一对，但不能带双王。\n\n"+
+            "地主一方与两名农民分别组队，任一农民出完即农民获胜。炸弹、王炸、春天或反春天翻倍。积分仅作本地战绩。\n\n"+
+            "玩家不限时；托管可随时取消。牌局自动保存，下次打开继续。"
+        val content=text(rules,17f).apply{gravity=Gravity.START;setPadding(dp(22),dp(12),dp(22),dp(12))}
+        AlertDialog.Builder(this).setTitle("玩法与操作").setView(ScrollView(this).apply{addView(content)})
+            .setPositiveButton("返回牌局",null).create().apply{
+                setOnDismissListener{modal=false;schedule()};show()
+                window?.setBackgroundDrawable(background(0xff283e78.toInt(),0xff769cda.toInt()))
+            }
     }
     private fun showSettings(){
         if(modal)return;modal=true;handler.removeCallbacksAndMessages(null)
@@ -455,6 +477,7 @@ class MainActivity: Activity() {
             audio.configure(music.isChecked,effects.isChecked,musicBar.progress,effectBar.progress)
             musicLabel.text="音乐音量 ${musicBar.progress}%"
             effectLabel.text="音效音量 ${effectBar.progress}%"
+            musicBar.contentDescription=musicLabel.text;effectBar.contentDescription=effectLabel.text
         }
         applySound()
         music.setOnCheckedChangeListener{_,_->applySound()};effects.setOnCheckedChangeListener{_,_->applySound()}
@@ -501,33 +524,42 @@ class MainActivity: Activity() {
             data?.data?.let{uri->audio.importMusic(uri){result->if(!isFinishing&&!isDestroyed)Toast.makeText(this,result.message,Toast.LENGTH_LONG).show()}}
         }
     }
-    /** Record lives outside the snapshot so an unreadable table can never erase the player's record. */
+    /** An independent record mirror survives an unreadable table. Valid snapshots remain authoritative. */
     private fun recordStore()=getSharedPreferences("record",0)
     private fun saveRecord(){recordStore().edit().putInt("format",SNAPSHOT_FORMAT).putInt("games",games).putInt("wins",wins).putInt("score",score).apply()}
     private fun readStored(file:File):Any?{
-        if(!file.exists())return null
+        // AtomicFile may have only its backup after an interrupted replacement.
+        if(!file.exists()&&!File(file.path+".bak").exists())return null
         return try{ObjectInputStream(AtomicFile(file).openRead()).use{it.readObject()}}catch(_:Exception){unreadable=true;null}
     }
     private fun restore():Boolean{
         // v3 is the current format; v2 is only ever read, never rewritten, so older builds keep it.
-        val current=readStored(File(filesDir,"native-table-v3")) as? TableSnapshot
-        val legacy=if(current?.game==null)readStored(File(filesDir,"native-table-v2")) as? SavedTable else null
+        val currentFile=File(filesDir,"native-table-v3")
+        val hasCurrent=currentFile.exists()||File(currentFile.path+".bak").exists()
+        val current=readStored(currentFile) as? TableSnapshot
+        val currentUsable=usableSnapshot(current,SNAPSHOT_FORMAT)
         val stored=recordStore()
+        val legacyFile=File(filesDir,"native-table-v2")
+        // Old statistics may still need migrating, but an old table must not replace a newer broken
+        // one: that could replay an already counted result and silently roll the game back.
+        val legacy=if(!hasCurrent||(!stored.contains("games")&&(!currentUsable||current?.record==null)))readStored(legacyFile) as? SavedTable else null
         when {
+            currentUsable&&current?.record!=null->{games=current.record.games;wins=current.record.wins;score=current.record.score;saveRecord()}
             stored.contains("games")->{games=stored.getInt("games",0);wins=stored.getInt("wins",0);score=stored.getInt("score",0)}
             legacy!=null->{games=legacy.games;wins=legacy.wins;score=legacy.score;saveRecord()}
         }
-        val candidate=current?.game?:legacy?.game
-        if(usableTable(candidate)){game=candidate!!;return true}
-        // Only warn when this actually costs the player a table: a readable v2 fallback is not a loss.
-        corrupt=unreadable||candidate!=null
+        val candidate=if(hasCurrent)current?.game else legacy?.game
+        if(if(hasCurrent)currentUsable else usableTable(candidate)){game=candidate!!;return true}
+        corrupt=unreadable||hasCurrent||candidate!=null||legacyFile.exists()||File(legacyFile.path+".bak").exists()
         game=Game.create(nextLevel)
         return false
     }
     private fun persist(){
-        saveRecord()
         val file=AtomicFile(File(filesDir,"native-table-v3"));var out:FileOutputStream?=null
-        try{out=file.startWrite();val stream=ObjectOutputStream(out);stream.writeObject(TableSnapshot(SNAPSHOT_FORMAT,game));stream.flush();file.finishWrite(out)}catch(_:IOException){file.failWrite(out)}
+        // The table's settled flag and its resulting record must commit together. Preferences are
+        // only a recovery mirror; publishing them first could count a result twice after a failed save.
+        try{out=file.startWrite();val stream=ObjectOutputStream(out);stream.writeObject(TableSnapshot(SNAPSHOT_FORMAT,game,MatchRecord(games,wins,score)));stream.flush();file.finishWrite(out)}catch(_:IOException){file.failWrite(out);return}
+        saveRecord()
     }
     override fun onResume(){super.onResume();running=true;if(::audio.isInitialized)audio.resume();if(::game.isInitialized){if(dealPending)startDeal();schedule()}}
     override fun onPause(){running=false;handler.removeCallbacksAndMessages(null);if(dealing)endDeal();if(::audio.isInitialized)audio.pause();if(::game.isInitialized)persist();super.onPause()}
@@ -566,8 +598,14 @@ class MainActivity: Activity() {
     }
     internal fun testStart(level:Int=1){handler.removeCallbacksAndMessages(null);seatMoves=Array(3){emptyList()};autoPlay=false;game=Game.create(level,kotlin.random.Random(42));game.turn=0;game.bid(3);selected.clear();persist();render();running=false}
     /** Starts a real deal so a device test can observe both the running and the finished state. */
-    internal fun testDeal():Boolean{handler.removeCallbacksAndMessages(null);autoPlay=false;fresh();running=false;return dealing}
+    internal fun testDeal(runComputer:Boolean=false):Boolean{
+        handler.removeCallbacksAndMessages(null);autoPlay=false;fresh();running=runComputer
+        if(runComputer){game.turn=1;speed=1000L;schedule()}
+        return dealing
+    }
+    internal fun testSuspendTurns(){running=false;handler.removeCallbacksAndMessages(null)}
     internal fun testDealing():Boolean=dealing
+    internal fun testDealAnimating():Boolean=dealAnimator?.isRunning==true
     /** Redraws after a test has rewritten the table state directly. */
     internal fun testRender(){render()}
     internal fun testDealLayer():DealLayer=dealLayer

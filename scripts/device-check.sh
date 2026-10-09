@@ -49,7 +49,11 @@ for size in compact large largefont wide cutout; do
     adb pull "/sdcard/Android/data/com.arcxya.doudizhu/files/screenshots/native-$frame.png" "device-results/native-$size-$frame.png" 2>/dev/null || true
   done
   adb pull "/sdcard/Android/data/com.arcxya.doudizhu/files/screenshots/native-audio.txt" "device-results/$size-audio.txt" 2>/dev/null || true
-  if ! grep -q 'OK (3 tests)' "device-results/$size-tests.txt"; then
+  # Test count grows with regression coverage. Require both JUnit's successful summary and the
+  # runner's normal completion; adb can exit successfully even when instrumentation crashes.
+  if ! grep -Eq '^OK \([1-9][0-9]* tests?\)[[:space:]]*$' "device-results/$size-tests.txt" ||
+     ! grep -Eq '^INSTRUMENTATION_CODE: -1[[:space:]]*$' "device-results/$size-tests.txt" ||
+     grep -Eq '^INSTRUMENTATION_(FAILED|ABORTED)|^FAILURES!!!|^INSTRUMENTATION_STATUS_CODE: -(1|2)[[:space:]]*$' "device-results/$size-tests.txt"; then
     adb exec-out screencap -p > "device-results/native-$size-failure.png"
     adb logcat -d -s AndroidRuntime:E > device-results/crashes.txt
     exit 1

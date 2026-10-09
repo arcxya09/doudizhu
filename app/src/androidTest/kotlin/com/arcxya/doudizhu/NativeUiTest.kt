@@ -10,6 +10,7 @@ import android.graphics.Rect
 import android.media.MediaPlayer
 import android.os.Looper
 import android.os.SystemClock
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -172,6 +173,66 @@ class NativeUiTest {
         val rightBounds = Rect().also { right.getChildAt(0).getGlobalVisibleRect(it) }
         assertTrue("Left single card is in left seat band", leftBounds.centerX() < screenWidth*.28f)
         assertTrue("Right single card is in right seat band", rightBounds.centerX() > screenWidth*.72f)
+    }
+
+    /** Exercise the overlap geometry and interrupted native gestures without relying on swipe timing. */
+    private fun checkHandGestures(inst: Instrumentation, activity: MainActivity) = onMain(inst) {
+        val hand=activity.hand
+        val first=hand.getChildAt(0) as CardFace
+        val next=hand.getChildAt(1) as CardFace
+        fun selected()=(0 until hand.childCount).filter{hand.getChildAt(it).isSelected}
+        fun point(index:Int)=hand.exposedBounds(index).let{it.centerX().toFloat() to it.centerY().toFloat()}
+        var downTime=SystemClock.uptimeMillis()
+        var time=downTime
+        fun send(action:Int,x:Float,y:Float){
+            if(action==MotionEvent.ACTION_DOWN){downTime=SystemClock.uptimeMillis();time=downTime}
+            val event=MotionEvent.obtain(downTime,time,action,x,y,0)
+            try{hand.dispatchTouchEvent(event)}finally{event.recycle()}
+            time+=16
+        }
+        assertTrue("Gesture fixture starts clear",selected().isEmpty())
+        first.performClick()
+        val raised=first.faceBounds();val resting=next.faceBounds()
+        val x=(next.left+resting.left+first.left+raised.right)/2
+        val y=(first.top+raised.top+next.top+resting.top)/2
+        assertTrue("Raised strip overlaps the next view horizontally",x>=next.left&&x<next.right)
+        assertTrue("Tap is above the next card's visible face",y<next.top+resting.top)
+        send(MotionEvent.ACTION_DOWN,x,y);send(MotionEvent.ACTION_UP,x,y)
+        assertTrue("Raised face tap clears that card without selecting its neighbour",selected().isEmpty())
+
+        val from=point(0);val to=point(4)
+        hand.getChildAt(8).performClick()
+        send(MotionEvent.ACTION_DOWN,from.first,from.second)
+        send(MotionEvent.ACTION_MOVE,to.first,to.second)
+        assertEquals("Drag retains previous selections",listOf(0,1,2,3,4,8),selected())
+        send(MotionEvent.ACTION_CANCEL,to.first,to.second)
+        assertEquals("System cancellation restores the selection before the drag",listOf(8),selected())
+        hand.getChildAt(8).performClick()
+
+        send(MotionEvent.ACTION_DOWN,from.first,from.second)
+        send(MotionEvent.ACTION_MOVE,to.first,to.second)
+        assertEquals("Multi-touch fixture has a live drag",listOf(0,1,2,3,4),selected())
+        val second=point(9)
+        val properties=Array(2){i->MotionEvent.PointerProperties().apply{id=i;toolType=MotionEvent.TOOL_TYPE_FINGER}}
+        val coordinates=arrayOf(to,second).map{p->MotionEvent.PointerCoords().apply{this.x=p.first;this.y=p.second;pressure=1f;size=1f}}.toTypedArray()
+        val extraFinger=MotionEvent.obtain(downTime,time,MotionEvent.ACTION_POINTER_DOWN or (1 shl MotionEvent.ACTION_POINTER_INDEX_SHIFT),
+            2,properties,coordinates,0,0,1f,1f,0,0,android.view.InputDevice.SOURCE_TOUCHSCREEN,0)
+        try{hand.dispatchTouchEvent(extraFinger)}finally{extraFinger.recycle()}
+        assertTrue("A second finger cancels the drag and restores the original selection",selected().isEmpty())
+        // Even when the first finger keeps moving, an interrupted gesture cannot begin selecting again.
+        send(MotionEvent.ACTION_MOVE,second.first,second.second)
+        send(MotionEvent.ACTION_UP,second.first,second.second)
+        assertTrue("Cancelled multi-touch stays cancelled until release",selected().isEmpty())
+
+        val handNode=first.createAccessibilityNodeInfo()
+        assertEquals("Hand card identifies itself as a checkbox","android.widget.CheckBox",handNode.className.toString())
+        assertTrue("Hand card exposes selection state",handNode.isCheckable)
+        val bottom=activity.testBottomStrip().getChildAt(0).createAccessibilityNodeInfo()
+        assertEquals("Public cards are read-only images","android.widget.ImageView",bottom.className.toString())
+        assertFalse("Public cards do not offer a checkbox",bottom.isCheckable)
+        val marked=(0 until hand.childCount).map{hand.getChildAt(it) as CardFace}.filter{it.bottomCard}
+        assertEquals("The landlord has three marked bottom cards",3,marked.size)
+        assertTrue("Bottom-card identity is announced",marked.all{it.contentDescription.toString().contains("地主底牌")})
     }
 
     @Test fun bundledAudioDecodesAndFollowsActivityLifecycle() {
@@ -517,6 +578,11 @@ class NativeUiTest {
         }
         val dir = File(context.getExternalFilesDir(null), "screenshots").apply { mkdirs() }
         captureGame(inst, device, activity, File(dir, "native-table.png"))
+        assertTrue("The current turn is visible",device.hasObject(By.text("轮到你 · 自由出牌")))
+        tap(inst,device,activity,"帮助")
+        assertTrue("Help opens the game rules",device.wait(Until.hasObject(By.text("玩法与操作")),5000))
+        device.findObject(By.text("返回牌局"))!!.click()
+        await("Help returns to the same table"){onMain(inst){activity.hasWindowFocus()&&activity.hand.childCount==20}}
         fun point(index:Int):Pair<Int,Int> = onMain(inst){
             val origin=IntArray(2);activity.hand.getLocationOnScreen(origin)
             val bounds=activity.hand.exposedBounds(index)
@@ -528,6 +594,7 @@ class NativeUiTest {
         }
         tap(inst,device,activity,"重选")
         await("Reselection clears cards and completes layout"){onMain(inst){activity.hand.childCount==20 && (0 until 20).all{!activity.hand.getChildAt(it).isSelected && activity.hand.getChildAt(it).width>0}}}
+        checkHandGestures(inst,activity)
         val from=point(0);val to=point(4)
         assertTrue(device.swipe(from.first,from.second,to.first,to.second,24))
         await("Swipe selects exactly five cards"){onMain(inst){(0 until 20).all{activity.hand.getChildAt(it).isSelected == (it<5)}}}
@@ -642,23 +709,45 @@ class NativeUiTest {
             device.currentPackageName == context.packageName && onMain(inst) { activity.hasWindowFocus() }
         }
         val dir = File(context.getExternalFilesDir(null), "screenshots").apply { mkdirs() }
-        onMain(inst) { activity.testDeal() }
+        onMain(inst) { activity.testDeal(runComputer=true) }
         inst.waitForIdleSync()
         // With animations disabled the timeline completes at once, so only the resting state is
         // asserted there; a real animation is additionally checked while it is still running.
-        if (onMain(inst) { activity.testDealing() }) {
-            val offset = onMain(inst) {
-                val card = activity.hand.getChildAt(activity.hand.childCount - 1)
-                abs(card.translationX) + abs(card.translationY)
+        if(onMain(inst){android.animation.ValueAnimator.areAnimatorsEnabled()}){
+            await("Deal timeline starts or finishes"){
+                onMain(inst){!activity.testDealing()||activity.testDealAnimating()}
             }
-            assertTrue("Cards must start away from their own slot", offset > 0f)
-            assertEquals("No actions while dealing", 0, onMain(inst) { activity.actions.childCount })
-            assertEquals("Bottom cards are dealt face down", 3, onMain(inst) { activity.testBottomStrip().childCount })
-            assertEquals("Bottom cards show while dealing", View.VISIBLE, onMain(inst) { activity.testBottomStrip().visibility })
+        }
+        // Observe the flag, animator and all moving-state assertions in one UI-thread transaction.
+        // A disabled or just-completed animation cannot end between the guard and the assertions.
+        val observedAnimation=onMain(inst){
+            if(!android.animation.ValueAnimator.areAnimatorsEnabled()||!activity.testDealing()||!activity.testDealAnimating())false
+            else{
+                val strips=listOf(activity.hand,activity.testBottomStrip())
+                val offset=strips.maxOf{strip->(0 until strip.childCount).maxOfOrNull{i->
+                    val card=strip.getChildAt(i);abs(card.translationX)+abs(card.translationY)
+                }?:0f}
+                // The last kitty card is still in flight after the last own-hand card has landed.
+                assertTrue("An active deal has cards away from their resting slots",offset>0f)
+                assertEquals("No actions while dealing",0,activity.actions.childCount)
+                assertEquals("Bottom cards are dealt face down",3,activity.testBottomStrip().childCount)
+                assertEquals("Bottom cards show while dealing",View.VISIBLE,activity.testBottomStrip().visibility)
+                true
+            }
+        }
+        if(observedAnimation){
             // Let the cards get airborne before capturing, so the shot shows the flight itself.
             SystemClock.sleep(1200)
+            onMain(inst){
+                if(activity.testDealing()){
+                    assertEquals("Computer cannot bid before the deal is complete",0,activity.game.bidCount)
+                    assertEquals("Dealing must not create turn actions",0,activity.actions.childCount)
+                    assertEquals("Computer must not take the kitty during the deal",17,activity.game.hands[0].size)
+                }
+            }
             device.takeScreenshot(File(dir, "native-dealing.png"))
         }
+        onMain(inst){activity.testSuspendTurns()}
         await("Deal finishes and settles the whole hand", 15000) {
             onMain(inst) { !activity.testDealing() && activity.hand.childCount == 17 }
         }

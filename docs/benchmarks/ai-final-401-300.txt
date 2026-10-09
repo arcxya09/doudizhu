@@ -1,0 +1,11 @@
+Baseline revision: b0dbe28760053225c0d4cbb17e77e551df056066
+Current Rules.kt SHA256: 098a430d6f8e6742f59dd06fef189e02746364f0cb00311379386e04a1ee5692
+Current HandEvaluator.kt SHA256: b5f51d80e2310f0501b282b6e86d0f845f40a0ff43f7eb2d38eba338608c9822
+Seeds=401..700; seat 0 fixed as landlord; numbers are landlord wins
+current-hard / current-easy = 247/300
+current-easy / current-hard = 10/300
+current-hard / baseline-hard = 140/300
+baseline-hard / current-hard = 125/300
+baseline-hard / baseline-hard = 132/300
+Desktop JVM timing, 303 twenty-card hands: mean=1.1883953795379534ms, p95=3.0596ms, max=6.3927ms
+These fixed-role samples do not estimate general human-play win rates or phone latency.

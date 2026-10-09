@@ -52,7 +52,15 @@ object Rules {
         if (k < 0 || xs.size-start < k) return
         for (i in start..xs.size-k) choose(xs,k-1,use,i+1,acc+xs[i])
     }
+    /** Suits are interchangeable. Enumerate each wing rank-count once instead of every suit subset. */
+    private fun chooseCards(groups: List<List<Int>>, k: Int, use: (List<Int>) -> Unit, start: Int = 0, acc: List<Int> = emptyList()) {
+        if (k == 0) { use(acc); return }
+        if (start == groups.size || groups.drop(start).sumOf { it.size } < k) return
+        val cards = groups[start]
+        for (n in 0..minOf(k, cards.size)) chooseCards(groups,k-n,use,start+1,acc+cards.take(n))
+    }
     fun moves(hand: List<Int>, target: Move? = null): List<Move> {
+        if (target?.kind == Kind.ROCKET) return emptyList()
         val g = groups(hand); val rs = g.keys.toList(); val out = linkedMapOf<List<Int>,Move>()
         fun add(cs: List<Int>) { val m = classify(cs); if (beats(m,target)) out[m!!.cards.map { rank(it) }] = m }
         for (r in rs) {
@@ -73,81 +81,84 @@ object Rules {
                 add(body)
                 if (mult != 3) continue
                 val others = rs.filter { it !in start..end }
-                if (4*k <= hand.size) choose(others.flatMap { g.getValue(it) },k,{ add(body+it) })
+                if (4*k <= hand.size) chooseCards(others.map { g.getValue(it) },k,{ add(body+it) })
                 if (5*k <= hand.size) choose(others.filter { g.getValue(it).size >= 2 },k,{ w -> add(body+w.flatMap { g.getValue(it).take(2) }) })
             }
         }
         for (r in rs.filter { g.getValue(it).size == 4 }) {
             val others = rs.filter { it != r }
-            choose(others.flatMap { g.getValue(it) },2,{ add(g.getValue(r)+it) })
+            chooseCards(others.map { g.getValue(it) },2,{ add(g.getValue(r)+it) })
             choose(others.filter { g.getValue(it).size >= 2 },2,{ w -> add(g.getValue(r)+w.flatMap { g.getValue(it).take(2) }) })
         }
         return out.values.toList()
     }
-    /** Longest run of consecutive ranks that each hold at least `need` cards, if one is playable. */
-    private fun longestRun(g: Map<Int,Int>, need: Int): List<Int>? {
-        val least = when (need) { 1 -> 5; 2 -> 3; else -> 2 }
-        var best: List<Int>? = null
+    /** Exact own-hand partition count, including attachments and overlapping runs. */
+    fun handsLeft(hand: List<Int>): Int = HandEvaluator(hand).plays(hand)
+    /** Equal-length partitions are not equally useful: loose low singles need the lead again,
+     * whereas high pairs/triples can recover it. Runs and available triple wings protect singles
+     * from this extra cost. Rank bands preserve variety between similarly weak cards. */
+    private fun residualRisk(g: Map<Int,List<Int>>): Double {
+        val protected = hashSetOf<Int>()
         var start = 3
         while (start <= 14) {
-            if ((g[start] ?: 0) < need) { start++; continue }
+            if (start !in g) { start++; continue }
             var end = start
-            while (end < 14 && (g[end + 1] ?: 0) >= need) end++
-            val run = (start..end).toList()
-            if (run.size >= least && run.size > (best?.size ?: 0)) best = run
-            start = end + 1
+            while (end < 14 && end+1 in g) end++
+            if (end-start+1 >= 5) protected.addAll(start..end)
+            start = end+1
         }
-        return best
+        val wings = g.values.count { it.size == 3 }
+        val loose = g.filter { it.value.size == 1 && it.key !in protected }.keys.sorted().drop(wings)
+        val singles = loose.sumOf { maxOf(0,(14-it)/3)*.6 }
+        val control = g.entries.sumOf { (r,cs) -> if (r >= 12 && cs.size >= 2) (r-11)*.2 else 0.0 }
+        return singles-control
     }
-    /** Empties a hand by repeatedly taking the longest run of each shape, then counting what is left. */
-    private fun decompose(counts: Map<Int,Int>, order: IntArray): Int {
-        val left = counts.toMutableMap(); var plays = 0
-        if (16 in left && 17 in left) { plays++; left.remove(16); left.remove(17) }
-        for (r in left.keys.toList()) if (left[r] == 4) { plays++; left.remove(r) }
-        for (need in order) while (true) {
-            val run = longestRun(left, need) ?: break
-            for (r in run) { val rest = left.getValue(r) - need; if (rest <= 0) left.remove(r) else left[r] = rest }
-            plays++
-        }
-        val triples = left.values.count { it == 3 }
-        val singles = left.values.count { it == 1 }
-        plays += triples + left.values.count { it == 2 } + singles
-        // A triple can carry one single, so that attachment is not a play of its own.
-        return plays - minOf(triples, singles)
-    }
-    /** How many plays the hand still needs. Taking the runs in a different order changes the count, so
-     *  a few sensible orders are tried and the cheapest kept. This replaces a per-rank weighting that
-     *  could not tell a five-card straight (one play) from five loose singles (five plays). */
-    fun handsLeft(hand: List<Int>): Int {
-        val counts = groups(hand).mapValues { it.value.size }
-        return DECOMPOSE_ORDERS.minOf { decompose(counts, it) }
-    }
-    private val DECOMPOSE_ORDERS = listOf(intArrayOf(3,1,2), intArrayOf(1,3,2), intArrayOf(2,1,3), intArrayOf(1,2,3))
     // AI receives only its own cards and public information; never opponents' cards.
     fun ai(hand: List<Int>, target: Move?, player: Int, landlord: Int, lastPlayer: Int, counts: List<Int>, level: Int, rng: Random = Random.Default): Move? {
-        val ms = moves(hand,target); if (ms.isEmpty()) return null
+        if (target?.kind == Kind.ROCKET) return null
+        val legal = moves(hand)
+        val ms = if (target == null) legal else legal.filter { beats(it,target) }
+        if (ms.isEmpty()) return null
         ms.firstOrNull { it.cards.size == hand.size }?.let { return it }
-        if (target != null && player != landlord && lastPlayer != landlord && (level > 0 || rng.nextDouble() < .8)) return null
+        // A rocket followed by any legal finish cannot lose the lead. Saving it here can instead
+        // hand the game to an opponent who beats the other part of our hand.
+        if (level > 0) ms.firstOrNull { it.kind == Kind.ROCKET && classify(hand - it.cards.toSet()) != null }?.let { return it }
+        val next = (player+1)%3
+        val before = groups(hand)
+        val unseen = (3..17).associateWith { r ->
+            (if (r < 16) 4 else 1) - (before[r]?.size ?: 0) - (target?.cards?.count { rank(it) == r } ?: 0)
+        }
+        // A teammate's lead is normally left alone. If the landlord acts next and could empty their
+        // hand on this shape, take over to block them rather than blindly passing a low single/pair.
+        val intercept = target != null && next == landlord && counts[landlord] == target.cards.size &&
+            target.kind in listOf(Kind.SINGLE,Kind.PAIR) &&
+            unseen.any { (r,n) -> r > target.key && n >= target.cards.size }
+        if (target != null && player != landlord && lastPlayer != landlord &&
+            !(level == 2 && intercept) && (level > 0 || rng.nextDouble() < .8)) return null
         if (level == 0) {
             if (target != null && rng.nextDouble() < .16) return null
             val ordinary = ms.filter { it.kind != Kind.BOMB && it.kind != Kind.ROCKET }
             return (ordinary.ifEmpty { ms }).random(rng)
         }
+        val evaluator = HandEvaluator(hand,legal)
         val danger = counts.indices.any { it != player && (player == landlord || it == landlord) && counts[it] <= 2 }
-        val next = (player+1)%3
+        val lastSingle = counts.indices.any { it != player && (player == landlord || it == landlord) && counts[it] == 1 }
         // The teammate plays right after me and is nearly out: a small single lets them finish.
-        val feeding = target == null && player != landlord && next != landlord && counts[next] <= 2
+        val feeding = target == null && player != landlord && next != landlord && counts[next] == 1
         fun score(m: Move): Double {
-            val left = hand - m.cards.toSet(); var s = handsLeft(left)*3.0 + m.key*.08
+            val left = hand - m.cards.toSet(); val after = groups(left)
+            var s = evaluator.plays(left)*3.0 + residualRisk(after) + m.key*.08
             // Twos and jokers hold the lead, so spending one has to buy something.
             s -= left.count { rank(it) >= 15 } * .9
             if (m.kind == Kind.BOMB || m.kind == Kind.ROCKET) s += if(target == null) 11 else 7
             if (feeding) { if (m.kind == Kind.SINGLE) s += m.key*.9 else s += 6 }
             if (level == 2) {
-                val before = groups(hand); val after = groups(left)
                 for (r in before.keys) if (before[r]?.size == 4 && after[r] != null && after[r]!!.size < 4) s += 4
-                if (danger && target != null) s -= m.key*.45
+                if ((danger || intercept) && target != null) s -= m.key*.6
                 if (danger && target == null) {
+                    // A beatable single can lose immediately against a one-card opponent. Count
+                    // only cards outside our hand and the current trick; never inspect hidden hands.
+                    if (lastSingle && !feeding && m.kind == Kind.SINGLE && unseen.any { (r,n) -> r > m.key && n > 0 }) s += 6
                     // Someone is about to win: a wide play they cannot answer keeps the lead, and of
                     // the singles the highest is the hardest to beat. The two rank different kinds, so
                     // only one applies per move.

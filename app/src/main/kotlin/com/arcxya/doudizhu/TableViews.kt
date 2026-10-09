@@ -45,6 +45,10 @@ class ClassicActionButton(context:Context,private val primary:Boolean):android.w
         val name=if(!isEnabled)"xiaohui_button" else if(primary)"btn_jdz" else "xiaolu_button"
         val face=RectF(2*d,height/2f-h/2,width-2*d,height/2f+h/2)
         fill.color=Color.WHITE;fill.alpha=if(isPressed)210 else 255;sprites.draw(c,name,face,fill)
+        if(isFocused&&isEnabled){
+            fill.alpha=255;fill.style=Paint.Style.STROKE;fill.strokeWidth=2*d;fill.color=0xfffff0a6.toInt()
+            c.drawRoundRect(RectF(d,d,width-d,height-d),12*d,12*d,fill);fill.style=Paint.Style.FILL
+        }
         val caption=text.toString()
         paint.getTextBounds(caption,0,caption.length,textBounds)
         // Imported gray/green faces occupy the top 72 px; their bottom shadow is not the face.
@@ -96,21 +100,22 @@ class CoinIcon(private val size:Int):Drawable(){
 class SeatAvatar(context:Context,asset:String):View(context){
     private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val bitmap=context.assets.open(asset).use{BitmapFactory.decodeStream(it)}
-    var active=false;set(value){field=value;invalidate()}
+    var active=false;set(value){if(field!=value){field=value;invalidate()}}
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     override fun onDraw(c:Canvas){
         val d=resources.displayMetrics.density;val radius=min(width,height)/2f-3*d
         val x=width/2f;val y=height/2f
-        paint.style=Paint.Style.FILL;paint.color=0x60304a78;c.drawCircle(x,y,radius+3*d,paint)
+        paint.style=Paint.Style.FILL;paint.color=if(active)0x99ffd878.toInt() else 0x60304a78;c.drawCircle(x,y,radius+3*d,paint)
         c.save();c.clipPath(Path().apply{addCircle(x,y,radius,Path.Direction.CW)})
         paint.color=Color.WHITE;c.drawBitmap(bitmap,null,RectF(x-radius,y-radius,x+radius,y+radius),paint);c.restore()
-        paint.style=Paint.Style.STROKE;paint.strokeWidth=2*d;paint.color=if(active)0xffffd878.toInt() else Color.WHITE
+        paint.style=Paint.Style.STROKE;paint.strokeWidth=if(active)3*d else 2*d;paint.color=if(active)0xffffd878.toInt() else Color.WHITE
         c.drawCircle(x,y,radius,paint);paint.style=Paint.Style.FILL
     }
 }
 /** Gold alarm-clock frame from the reference, without a time limit on the player. */
 class TurnClock(context:Context,private val value:String):View(context){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+    init{contentDescription=if(value=="∞")"玩家回合，不限时" else "电脑正在思考"}
     override fun onDraw(c:Canvas){
         val size=min(width.toFloat(),height*.84f);val x=width/2f;val y=height/2f+size*.025f;val r=size*.38f
         p.color=0xffd9e6eb.toInt();c.drawOval(RectF(x-r*1.05f,y-r*1.22f,x-r*.35f,y-r*.63f),p);c.drawOval(RectF(x+r*.35f,y-r*1.22f,x+r*1.05f,y-r*.63f),p)
@@ -133,14 +138,21 @@ class RankCounter(context:Context):View(context){
         invalidate()
     }
     override fun onDraw(c:Canvas){
-        val cell=width/15f
+        val cell=width/15f;val d=resources.displayMetrics.density
         p.color=0xfff2f0e7.toInt();c.drawRoundRect(RectF(0f,0f,width.toFloat(),height.toFloat()),4f,4f,p)
-        p.typeface=Typeface.create("sans-serif",Typeface.NORMAL);p.textAlign=Paint.Align.CENTER
+        p.textAlign=Paint.Align.CENTER
         for(i in ranks.indices){
-            p.color=0xffd2d1ca.toInt();p.strokeWidth=1f;c.drawLine(i*cell,0f,i*cell,height.toFloat(),p)
-            p.textSize=min(height*.32f,cell*(if(i<2).43f else .77f));p.color=0xff555963.toInt();c.drawText(ranks[i],(i+.5f)*cell,height*.4f,p)
-            p.textSize=min(height*.34f,cell*.76f);p.color=if(ready&&counts[i]>0)0xffbe803c.toInt() else 0xffc9c4bb.toInt();c.drawText(if(ready)counts[i].toString() else "–",(i+.5f)*cell,height*.88f,p)
+            // Exhausted ranks have their own muted cell while every numeral keeps readable contrast.
+            if(ready&&counts[i]==0){p.color=0xffe0e4e8.toInt();c.drawRect(i*cell+d,height*.49f,(i+1)*cell-d,height-d,p)}
+            p.color=0xffc1c6ce.toInt();p.strokeWidth=d*.6f
+            if(i>0)c.drawLine(i*cell,d,i*cell,height-d,p)
+            p.typeface=Typeface.DEFAULT
+            p.textSize=min(height*.32f,cell*(if(i<2).43f else .77f));p.color=0xff39455a.toInt();c.drawText(ranks[i],(i+.5f)*cell,height*.4f,p)
+            p.typeface=Typeface.DEFAULT_BOLD
+            p.textSize=min(height*.34f,cell*.76f);p.color=if(ready&&counts[i]>0)0xff84501e.toInt() else 0xff66717e.toInt();c.drawText(if(ready)counts[i].toString() else "–",(i+.5f)*cell,height*.88f,p)
         }
+        p.style=Paint.Style.STROKE;p.strokeWidth=d;p.color=0xff8797ac.toInt()
+        c.drawRoundRect(RectF(d/2,d/2,width-d/2,height-d/2),4*d,4*d,p);p.style=Paint.Style.FILL
     }
 }
 /** Native icons above the compact toolbar captions. */

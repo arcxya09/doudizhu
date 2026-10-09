@@ -1,6 +1,6 @@
 # 正式版签名与覆盖升级
 
-首个正式版为 **v3.6.0（versionCode 19）**，当前版本为 **v3.6.1（versionCode 20）**。所有正式版保持包名 `com.arcxya.doudizhu`，使用同一份私人签名密钥。每次发布必须递增 `versionCode`，才能通过 Android 的正常覆盖升级检查。
+首个正式版为 **v3.6.0（versionCode 19）**，当前版本为 **v3.7.0（versionCode 25）**。所有正式版保持包名 `com.arcxya.doudizhu`，使用同一份私人签名密钥。每次发布必须递增 `versionCode`，才能通过 Android 的正常覆盖升级检查。
 
 正式证书的 SHA-256 指纹固定为：
 
@@ -65,14 +65,14 @@
 1. Secrets 路径由 `prepare-release-signing.py` 恢复密钥库，并用证书指纹确认是原密钥。缺少凭据时转入未签名准备路径；证书不符立即失败。
 2. Gradle 生成 release APK，禁用 `debuggable`。普通 Release 任务缺少签名凭据时拒绝构建；显式准备参数生成的未签名中间 APK 必须先完成本地固定签名和独立发布验收，不能回退到 debug 签名。
 3. `verify-release-apk.py` 检查 APK 签名、包名、版本号和非调试属性。
-4. `check-release-upgrade.sh` 在临时 AOSP 模拟器上执行覆盖安装，确认包 UID、私有目录所有者、牌局与战绩、设置、导入音乐索引和音频文件保持不变。恢复后再次核对全部文件哈希，并检查运行进程、崩溃日志和截图。
+4. `check-release-upgrade.sh` 在临时 AOSP 模拟器上执行覆盖安装，确认包 UID、私有目录所有者与全部持久文件在安装后不变。首次恢复保存后，通过独立 `UpgradeSnapshotCheck.java` 严格比较所有牌局字段与战绩，允许兼容地增加存档字段，并检查战绩镜像一致；设置、标记、音乐索引和音频文件仍逐字节一致。另检查运行进程、崩溃日志和截图。
 5. 全部成功后创建正式 GitHub Release；不能标记为 prerelease。已发布的同名版本不得替换 APK，后续修改须升版本。隔离分支发布时，Release 指向包含公开 APK 的提交，其直接父提交就是通过 QA 的源码。
 
 升级验收结果位于 `release-results/`：`upgrade-passed.txt`、`release-upgrade.txt`、`release-upgrade.png` 和启动、崩溃日志。签名密钥与密码不进入这些结果。
 
 换用新密钥后的首次正式发布没有旧正式包可下载，流程会用同一源码、同一证书构建 versionCode 19 的基线包，再覆盖安装 versionCode 20。这个检查证明本次固定证书系列的首次升级机制有效，不能证明旧密钥的 v3.6.0 可覆盖升级——那一版必须卸载重装。以后的版本使用 GitHub 上此前正式发布的 APK 作为基线；正式 Release 说明中的 `DDZ-OFFICIAL-SIGNER-SHA256` 标记必须匹配本指纹。
 
-验收脚本按基线实际写入的存档文件（`native-table-v2` 或 `native-table-v3`）计算哈希，因此换格式的版本既能恢复旧档，也不会改写旧文件。
+验收脚本按基线实际写入的存档文件（`native-table-v2` 或 `native-table-v3`）计算安装前后哈希。恢复运行后，v2 仍只读；v3 可以兼容增加字段，但必须通过完整牌局与战绩内容对照，不能用重开一局或仅比较阶段代替保存成功。
 
 ## 本地验收
 

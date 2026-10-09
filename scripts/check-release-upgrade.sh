@@ -4,6 +4,7 @@ set -euo pipefail
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo_dir"
 mkdir -p release-results
+rm -f release-results/upgrade-passed.txt
 exec > >(tee release-results/release-upgrade.txt) 2>&1
 
 baseline_apk=${1:-release-baseline.apk}
@@ -163,6 +164,16 @@ PY
 data_hashes() {
   adb shell "sha256sum '$data_dir/$snapshot' '$data_dir/shared_prefs/settings.xml' '$data_dir/files/upgrade-marker.txt' '$data_dir/files/local-music/selection.json' '$data_dir/files/local-music/upgrade-test.audio'" | tr -d '\r'
 }
+capture_state() {
+  local label=$1 table=$2
+  adb pull "$data_dir/$table" "$work_dir/$label-table.bin" >/dev/null
+  if adb shell test -f "$data_dir/shared_prefs/record.xml"; then
+    adb pull "$data_dir/shared_prefs/record.xml" "$work_dir/$label-record.xml" >/dev/null
+  else
+    # Legacy v2 embeds its own record; newer snapshots must have the independent record mirror.
+    printf '<map/>\n' > "$work_dir/$label-record.xml"
+  fi
+}
 pause_and_stop() {
   adb shell input keyevent KEYCODE_HOME
   for attempt in $(seq 1 20); do
@@ -183,8 +194,8 @@ fi
 baseline_turn=$(wait_for_human_turn "$work_dir/baseline-ui.xml")
 # Human turns have no timer. Home cancels pending AI callbacks and persists the table.
 pause_and_stop
-# A baseline build writes its own snapshot format. A later build migrates to a newer file and must
-# leave the baseline's file untouched, so hash whichever file this baseline actually produced.
+# Installation must preserve every byte. After the candidate runs, its current snapshot may gain
+# optional fields; the standalone verifier compares all game fields and statistics across schemas.
 snapshot=files/native-table-v2
 if adb shell test -s "$data_dir/files/native-table-v3"; then snapshot=files/native-table-v3; fi
 adb shell test -s "$data_dir/$snapshot"
@@ -193,6 +204,7 @@ if [ "$(wc -l < "$work_dir/before.sha256")" -ne 5 ]; then
   echo "All five persistent data fixtures must exist before upgrading." >&2
   exit 1
 fi
+capture_state before "$snapshot"
 
 # This is the upgrade being tested. There is deliberately no uninstall fallback.
 adb install -r "$candidate_apk"
@@ -231,5 +243,17 @@ if not image.startswith(b"\x89PNG\r\n\x1a\n") or len(image) < 1024:
 PY
 pause_and_stop
 data_hashes > "$work_dir/after-restore.sha256"
-diff -u "$work_dir/before.sha256" "$work_dir/after-restore.sha256"
-printf 'PASS: permanent certificate, non-debuggable APK, versionCode %s -> %s, adb install -r, unchanged UID/data owner, restored human turn, and all five data hashes preserved.\n' "$baseline_code" "$candidate_code" | tee release-results/upgrade-passed.txt
+# Settings, marker, copied music and its selection remain byte-identical. The old v2 file is also
+# read-only; only the current v3 snapshot is permitted to be rewritten after a successful restore.
+tail -n +2 "$work_dir/before.sha256" > "$work_dir/before-stable.sha256"
+tail -n +2 "$work_dir/after-restore.sha256" > "$work_dir/after-stable.sha256"
+diff -u "$work_dir/before-stable.sha256" "$work_dir/after-stable.sha256"
+if [ "$snapshot" = files/native-table-v2 ]; then
+  diff -u "$work_dir/before.sha256" "$work_dir/after-restore.sha256"
+fi
+candidate_snapshot=files/native-table-v3
+adb shell test -s "$data_dir/$candidate_snapshot"
+capture_state after "$candidate_snapshot"
+java scripts/UpgradeSnapshotCheck.java "$work_dir/before-table.bin" "$work_dir/before-record.xml" \
+  "$work_dir/after-table.bin" "$work_dir/after-record.xml" | tee release-results/release-upgrade-state.txt
+printf 'PASS: permanent certificate, non-debuggable APK, versionCode %s -> %s, adb install -r, unchanged UID/data owner, restored human turn, all game fields and record preserved, atomic record mirror consistent, settings and local music unchanged.\n' "$baseline_code" "$candidate_code" | tee release-results/upgrade-passed.txt

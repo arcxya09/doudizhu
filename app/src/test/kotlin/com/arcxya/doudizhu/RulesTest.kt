@@ -116,10 +116,73 @@ class RulesTest {
         assertEquals("a triple carries one single for free",1,Rules.handsLeft(cards(5,5,5,9)))
         assertEquals("an empty hand needs nothing",0,Rules.handsLeft(emptyList()))
     }
+    @Test fun handsLeftIncludesAttachmentsAndOverlappingRuns(){
+        listOf(
+            cards(3,3,3,7,7),
+            cards(3,3,3,4,4,4,7,8),
+            cards(3,3,3,4,4,4,7,7,8,8),
+            cards(3,3,3,3,7,8),
+            cards(3,3,3,3,7,7,8,8)
+        ).forEach { assertEquals("one legal play: $it",1,Rules.handsLeft(it)) }
+        // The longest straight (3..9) would strand three cards; 3..7 and 5..9 take two plays.
+        assertEquals(2,Rules.handsLeft(cards(3,4,5,5,6,6,7,7,8,9)))
+        assertEquals(2,Rules.handsLeft(cards(3,3,3,4,4,4,7,8,15,15)))
+    }
+    @Test fun handPartitionMatchesIndependentSubsetSearch(){
+        val rng=Random(501)
+        val samples=(1..35).map { Game.create(1,rng).hands[0].shuffled(rng).take(10) } + listOf(
+            cards(3,4,5,5,6,6,7,7,8,9), cards(3,3,3,4,4,4,7,7,8,8),
+            cards(3,3,3,3,7,7,8,8,16,17)
+        )
+        for(hand in samples){
+            val full=(1 shl hand.size)-1
+            val legal=(1..full).filter { mask -> Rules.classify(hand.filterIndexed { i,_ -> mask and (1 shl i)!=0 })!=null }
+            val best=IntArray(full+1){hand.size+1};best[0]=0
+            for(mask in 1..full) for(move in legal) if(mask and move==move) best[mask]=minOf(best[mask],1+best[mask xor move])
+            assertEquals("minimum plays for $hand",best[full],Rules.handsLeft(hand))
+        }
+    }
+    @Test fun wingEnumerationMatchesExhaustiveOnDenseHands(){
+        for(hand in listOf(cards(3,3,3,4,4,4,7,7,7,8,8,8),cards(3,3,3,3,4,4,4,4,7,7,16,17))){
+            val expected=(1 until (1 shl hand.size)).mapNotNull { mask ->
+                Rules.classify(hand.filterIndexed { i,_ -> mask and (1 shl i)!=0 })?.cards?.map { Rules.rank(it) }
+            }.toSet()
+            val actual=Rules.moves(hand).map { it.cards.map { card -> Rules.rank(card) } }
+            assertEquals(expected,actual.toSet())
+            assertEquals("suit equivalents are generated once",actual.size,actual.toSet().size)
+        }
+    }
+    @Test fun farmerInterceptsBeforeTheLandlordsLastCard(){
+        val single=Rules.ai(cards(4,10,14),Rules.classify(cards(3)),2,0,1,listOf(1,6,3),2,Random(1))
+        assertEquals("protect the teammate's low lead before landlord acts",14,single?.key)
+        val pair=Rules.ai(cards(3,5,5,14,14),Rules.classify(cards(4,4)),2,0,1,listOf(2,6,5),2,Random(1))
+        assertEquals(Kind.PAIR,pair?.kind);assertEquals(14,pair?.key)
+        assertNull("keep cooperating when the landlord cannot finish on the single",
+            Rules.ai(cards(4,10,14),Rules.classify(cards(3)),2,0,1,listOf(5,6,3),2,Random(1)))
+    }
+    @Test fun farmerDoesNotWasteABombOverAnUnbeatableTeammate(){
+        assertNull(Rules.ai(cards(3,3,3,3,7),Rules.classify(cards(17)),2,0,1,listOf(1,6,5),2,Random(1)))
+        assertNull("three twos in our hand rule out an unseen pair of twos",
+            Rules.ai(cards(3,15,15,15),Rules.classify(cards(14,14)),2,0,1,listOf(2,6,4),2,Random(1)))
+    }
+    @Test fun rocketSecuresATwoPlayFinish(){
+        for(target in listOf(null,Rules.classify(cards(8,8)))){
+            val hand=cards(3,3,16,17)
+            val move=Rules.ai(hand,target,0,0,1,listOf(4,2,6),2,Random(1))
+            assertEquals("the rocket keeps control before the final pair",Kind.ROCKET,move?.kind)
+            assertEquals(Kind.PAIR,Rules.classify(hand-move!!.cards.toSet())?.kind)
+        }
+    }
+    @Test fun aRocketCannotBeAnswered(){
+        assertNull(Rules.ai(cards(3,3,3,3,4,4,4,4,5,5,5,5,6,6,6,6,7,7,7,7),
+            Rules.classify(cards(16,17)),0,0,2,listOf(20,15,13),2,Random(1)))
+    }
     @Test fun aFarmerFeedsTheTeammateWhoPlaysNext(){
         // Farmer 1 leads, teammate 2 sits on one card and plays immediately after.
         val lead=Rules.ai(cards(3,9,13),null,1,0,0,listOf(3,3,1),2,Random(7))
         assertEquals("Feed the smallest single so the teammate can finish",3,lead?.key)
+        val close=Rules.ai(cards(3,5,5),null,1,0,0,listOf(1,3,1),2,Random(7))
+        assertEquals("the teammate gets the first chance to finish before the one-card landlord",3,close?.key)
     }
     @Test fun aLeaderFacingOneCardPrefersAWidePlayOverALowSingle(){
         // Landlord 0 leads, a farmer sits on a single card.
@@ -168,8 +231,8 @@ class RulesTest {
         return if(played==0)0 else wins*100/played
     }
     @Test fun hardSeatsOutplayEasySeats(){
-        // Measured 61% with the old per-rank cost and 80% once hands were scored by plays left, so the
-        // threshold guards that gain rather than merely checking that hard beats random.
+        // Fixed seeds and roles catch major regressions against the easy policy. This is not a
+        // population win-rate estimate or proof of improvement over another hard policy.
         val hardLord=landlordWinRate(2,0,1..300)
         val easyLord=landlordWinRate(0,2,1..300)
         println("STRENGTH hard-landlord=$hardLord%  easy-landlord=$easyLord%")

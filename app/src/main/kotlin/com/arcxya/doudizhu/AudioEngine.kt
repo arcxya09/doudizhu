@@ -32,11 +32,11 @@ class AudioEngine(context: Context) {
     var musicVolume = storedLevel("musicVolume", DEFAULT_MUSIC_VOLUME); private set
     var effectVolume = storedLevel("effectVolume", DEFAULT_EFFECT_VOLUME); private set
     /** Falls back to the single slider older builds stored, so an existing choice is not reset. */
-    private fun storedLevel(key: String, fallback: Int) = when {
+    private fun storedLevel(key: String, fallback: Int) = (when {
         prefs.contains(key) -> prefs.getInt(key, fallback)
         prefs.contains("volume") -> prefs.getInt("volume", fallback)
         else -> fallback
-    }
+    }).coerceIn(0, 100)
     var isMusicBusy = true; private set
     val currentMusicName get() = currentSelection?.name ?: "默认背景音乐"
     val hasCustomMusic get() = currentSelection != null
@@ -98,7 +98,15 @@ class AudioEngine(context: Context) {
 
     private fun loadInitialMusic(saved: LocalMusicStore.Selection?) {
         prepareCandidate(saved, { adopt(it, saved) }, {
-            if (saved != null) loadInitialMusic(null)
+            if (saved != null) {
+                // An undecodable saved file must not be retried on every launch. A newer import
+                // still wins because the pointer check and cleanup share the serial file worker.
+                FILE_WORKER.execute {
+                    runCatching { store.forgetIfSelected(saved) }
+                        .onFailure { error -> Log.w("OfflineAudio", "Cannot clear unreadable local music", error) }
+                }
+                loadInitialMusic(null)
+            }
             else { isMusicBusy = false; onMusicChanged?.invoke() }
         })
     }

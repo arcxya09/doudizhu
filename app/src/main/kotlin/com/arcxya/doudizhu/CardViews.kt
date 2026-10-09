@@ -42,24 +42,43 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
     /** One of the three bottom cards the landlord took. The marker sits in the exposed index strip,
      *  because an overlapped card only shows that strip and a corner ribbon would be covered. */
     var bottomCard=false
+        set(value){field=value;updateDescription();invalidate()}
     var showBody=true
-    init {contentDescription=if(card==54) "未公开底牌" else Rules.cardName(card);isFocusable=largeIndex}
+    init {updateDescription();isFocusable=largeIndex}
+    private fun updateDescription(){contentDescription=if(card==54) "未公开底牌" else Rules.cardName(card)+if(bottomCard)"，地主底牌" else ""}
     private fun fitted(canvas:Canvas,name:String,box:RectF) {
         val src=art.sprites.rect(name);val scale=min(box.width()/src.width(),box.height()/src.height())
         val w=src.width()*scale;val h=src.height()*scale
         art.sprites.draw(canvas,name,RectF(box.centerX()-w/2,box.top,box.centerX()+w/2,box.top+h),paint)
     }
-    override fun onDraw(canvas:Canvas) {
+    /** Drawing and touch picking share the actual face, including the raised selected top edge. */
+    internal fun faceBounds():RectF {
         val edge=dp(.7f);val lift=if(largeIndex)dp(9f) else 0f
-        val h=min(height-edge*2-lift,(width-dp(2f))/WIDTH_HEIGHT_RATIO)
+        val h=min(height-edge*2-lift,(width-dp(2f))/WIDTH_HEIGHT_RATIO).coerceAtLeast(0f)
         val w=h*WIDTH_HEIGHT_RATIO;val top=height-dp(1f)-h-if(isSelected)lift else 0f
-        val box=RectF((width-w)/2,top,(width+w)/2,top+h)
+        return RectF((width-w)/2,top,(width+w)/2,top+h)
+    }
+    override fun onDraw(canvas:Canvas) {
+        val edge=dp(.7f);val box=faceBounds();val w=box.width();val h=box.height()
         paint.style=Paint.Style.FILL;paint.color=0x4021283c
         canvas.drawRoundRect(RectF(box.left-dp(.5f),box.top+dp(1f),box.right+dp(.5f),box.bottom+dp(1.3f)),dp(3f),dp(3f),paint)
         if(isSelected){paint.color=0xffffbd35.toInt();canvas.drawRoundRect(RectF(box.left-edge,box.top-edge,box.right+edge,box.bottom+edge),dp(3f),dp(3f),paint)}
         paint.color=Color.WHITE
         art.sprites.draw(canvas,if(card==54)"large_card_anti" else "large_card_bgx",box,paint)
         if(card==54)return
+        // The warm fill remains visible in each exposed strip; a thin outer edge alone disappears
+        // behind the next card. Keep ranks and suits un-tinted by painting this beneath them.
+        if(isSelected){
+            paint.color=0x24ffc54a;canvas.drawRoundRect(box,dp(3f),dp(3f),paint)
+            paint.style=Paint.Style.STROKE;paint.strokeWidth=dp(1.6f);paint.color=0xffd68a15.toInt()
+            val outline=RectF(box).apply{inset(dp(.8f),dp(.8f))}
+            canvas.drawRoundRect(outline,dp(3f),dp(3f),paint);paint.style=Paint.Style.FILL;paint.color=Color.WHITE
+        }
+        if(isFocused&&largeIndex){
+            paint.style=Paint.Style.STROKE;paint.strokeWidth=dp(2f);paint.color=0xff2475b2.toInt()
+            val focus=RectF(box).apply{inset(dp(2f),dp(2f))}
+            canvas.drawRoundRect(focus,dp(3f),dp(3f),paint);paint.style=Paint.Style.FILL;paint.color=Color.WHITE
+        }
         val margin=min(if(indexWidth>0)indexWidth-dp(2f) else w*.42f,w*.48f).coerceAtLeast(dp(10f))
         val x=box.left+margin/2+dp(.5f);val available=margin-dp(4f)
         if(card>=52){
@@ -90,8 +109,13 @@ class CardFace(context: Context, private val art: CardArt, val card: Int, privat
         }
     }
     override fun setSelected(selected:Boolean){super.setSelected(selected);invalidate()}
+    override fun onFocusChanged(gainFocus:Boolean,direction:Int,previouslyFocusedRect:Rect?){super.onFocusChanged(gainFocus,direction,previouslyFocusedRect);invalidate()}
+    override fun performClick():Boolean=if(isEnabled&&isClickable)super.performClick() else false
     override fun onInitializeAccessibilityNodeInfo(info:AccessibilityNodeInfo){
-        super.onInitializeAccessibilityNodeInfo(info);info.className="android.widget.CheckBox";info.isCheckable=largeIndex;info.isChecked=isSelected
+        super.onInitializeAccessibilityNodeInfo(info)
+        info.className=if(largeIndex)"android.widget.CheckBox" else "android.widget.ImageView"
+        info.isCheckable=largeIndex;info.isChecked=largeIndex&&isSelected
+        if(largeIndex&&isEnabled)info.addAction(AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_CLICK,if(isSelected)"取消选择" else "选择这张牌"))
     }
 }
 /** One overlapping row. Touch selection follows the exposed index strips, in draw order. */
@@ -100,6 +124,7 @@ class HandLayout(context:Context):ViewGroup(context) {
     internal var stride=0f;private var start=0f
     private var downX=0f;private var downIndex=-1;private var lastIndex=-1;private var dragging=false
     private var before=booleanArrayOf();private var selectRange=true
+    private var gestureCards=emptyList<View>();private var captured=false;private var pointerId=-1
     private val slop=android.view.ViewConfiguration.get(context).scaledTouchSlop
     // Deal animation flies each card in from the deck, so it must draw outside this row's bounds.
     init{clipChildren=false}
@@ -123,7 +148,10 @@ class HandLayout(context:Context):ViewGroup(context) {
     }
     private fun hit(x:Float,y:Float):Int {
         if(y<paddingTop || y>height-paddingBottom)return -1
-        for(i in childCount-1 downTo 0){val v=getChildAt(i);if(x>=v.left&&x<v.right&&v.isEnabled)return i};return -1
+        for(i in childCount-1 downTo 0){
+            val v=getChildAt(i) as CardFace
+            if(v.isEnabled&&v.visibility==View.VISIBLE&&v.faceBounds().contains(x-v.left,y-v.top))return i
+        };return -1
     }
     override fun onInterceptTouchEvent(event:MotionEvent)=true
     override fun onTouchEvent(event:MotionEvent):Boolean {
@@ -131,27 +159,46 @@ class HandLayout(context:Context):ViewGroup(context) {
             MotionEvent.ACTION_DOWN->{
                 downIndex=hit(event.x,event.y);if(downIndex<0)return false
                 downX=event.x;lastIndex=downIndex;dragging=false
+                captured=true;pointerId=event.getPointerId(0)
+                gestureCards=(0 until childCount).map{getChildAt(it)}
                 before=BooleanArray(childCount){getChildAt(it).isSelected};selectRange=!before[downIndex]
                 parent?.requestDisallowInterceptTouchEvent(true);return true
             }
+            MotionEvent.ACTION_POINTER_DOWN->{if(captured)cancelSelection();return captured}
             MotionEvent.ACTION_MOVE->{
-                if(downIndex<0)return false
-                val index=hit(event.x,event.y)
-                if(index>=0&&(dragging||abs(event.x-downX)>slop)){dragging=true;lastIndex=index;applyRange(index)}
+                if(!captured)return false
+                if(downIndex<0)return true
+                val pointer=event.findPointerIndex(pointerId)
+                if(pointer<0||event.pointerCount>1||!sameHand()){cancelSelection();return true}
+                val x=event.getX(pointer);val index=hit(x,event.getY(pointer))
+                if(index>=0&&(dragging||abs(x-downX)>slop)){dragging=true;lastIndex=index;applyRange(index)}
                 return true
             }
             MotionEvent.ACTION_UP->{
-                if(downIndex<0)return false
-                if(!dragging){val index=hit(event.x,event.y);if(index==downIndex)getChildAt(index).performClick()} else applyRange(lastIndex)
-                downIndex=-1;parent?.requestDisallowInterceptTouchEvent(false);performClick();return true
+                if(!captured)return false
+                if(downIndex>=0&&sameHand()){
+                    if(!dragging){val index=hit(event.x,event.y);if(index==downIndex)getChildAt(index).performClick()} else applyRange(lastIndex)
+                    performClick()
+                }
+                finishGesture();return true
             }
             MotionEvent.ACTION_CANCEL->{
-                if(dragging)for(i in 0 until min(childCount,before.size))if(getChildAt(i).isSelected!=before[i])getChildAt(i).performClick()
-                downIndex=-1;parent?.requestDisallowInterceptTouchEvent(false);return true
+                if(!captured)return false
+                cancelSelection();finishGesture();return true
             }
-        };return downIndex>=0
+        };return captured
+    }
+    private fun sameHand()=gestureCards.size==childCount&&gestureCards.indices.all{gestureCards[it]===getChildAt(it)&&getChildAt(it).isEnabled}
+    private fun cancelSelection(){
+        if(dragging&&sameHand())for(i in before.indices)if(getChildAt(i).isSelected!=before[i])getChildAt(i).performClick()
+        downIndex=-1;dragging=false
+    }
+    private fun finishGesture(){
+        downIndex=-1;pointerId=-1;captured=false;dragging=false;gestureCards=emptyList();before=booleanArrayOf()
+        parent?.requestDisallowInterceptTouchEvent(false)
     }
     private fun applyRange(end:Int){
+        if(!sameHand()||downIndex<0)return
         for(i in 0 until min(childCount,before.size)){
             val desired=if(i in min(downIndex,end)..max(downIndex,end))selectRange else before[i]
             if(getChildAt(i).isSelected!=desired)getChildAt(i).performClick()
@@ -170,8 +217,8 @@ class CardStrip(context:Context,private val art:CardArt,private val maxColumns:I
     override fun onMeasure(ws:Int,hs:Int){
         val w=MeasureSpec.getSize(ws);val h=MeasureSpec.getSize(hs);setMeasuredDimension(w,h)
         val d=resources.displayMetrics.density
-        columns=if(childCount>maxColumns)maxColumns else if(childCount>12 && h>=100*d) (childCount+1)/2 else childCount.coerceAtLeast(1)
-        val rows=if(childCount>columns)2 else 1;rowHeight=h/rows
+        columns=(if(childCount>maxColumns)maxColumns else if(childCount>12 && h>=100*d) (childCount+1)/2 else childCount).coerceAtLeast(1)
+        val rows=((childCount+columns-1)/columns).coerceAtLeast(1);rowHeight=h/rows
         cardWidth=min((rowHeight*CardFace.WIDTH_HEIGHT_RATIO).toInt(),(w/(1+(columns-1)*.38f)).toInt()).coerceAtLeast(1)
         step=if(columns>1)min(cardWidth*.64f,(w-cardWidth).toFloat()/(columns-1)) else 0f
         for(i in 0 until childCount){val v=getChildAt(i) as CardFace;v.compactIndex=rows>1;v.indexWidth=if(columns==1)cardWidth*.42f else step;v.showBody=i==childCount-1||i%columns==columns-1
