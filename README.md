@@ -1,3 +1,7 @@
+## v3.8.0 · 应用内自动更新
+
+启动时每天自动检查一次 GitHub 正式版本，发现新版后在设置入口提示；也可手动检查或关闭自动检查。查看更新说明后下载，展示进度并支持取消，校验完整性、包名、版本和原正式签名后交由 Android 确认安装。联网失败不影响离线牌局。详见 [更新功能说明](docs/UPDATES.md) 和 [发布说明](docs/release-v3.8.0.md)。
+
 ## v3.7.0 · 牌桌交互、电脑策略与存档修复
 
 补齐可见回合提示、选牌反馈与独立玩法帮助，修复抬起牌误触、多指打断和发牌期间电脑提前行动。电脑加入精确拆手评估和残局阻拦；牌局与战绩改为一起原子保存，强化旧存档兼容与损坏恢复。详见 [发布说明](docs/release-v3.7.0.md) 和 [审查记录](docs/REVIEW-2026-10-09.md)。
@@ -44,7 +48,7 @@ v3.5.3 使用上传资源包的牌面、按钮、露台背景与完整常规对�
 
 [下载安装包](https://github.com/arcxya09/doudizhu/releases) · Android 8.0 及以上。
 
-完全离线，APK 不申请联网权限。使用 Kotlin 原生 View / Canvas，没有 WebView、HTML 或 JavaScript。移除商城、礼包、聊天、在线段位、充值和小程序入口；保留本地托管、重选、设置与帮助。
+对局完全离线；仅检查和下载更新使用网络，自动检查可在设置中关闭。使用 Kotlin 原生 View / Canvas，没有 WebView、HTML 或 JavaScript。移除商城、礼包、聊天、在线段位、充值和小程序入口；保留本地托管、重选、设置与帮助。
 
 ## 游戏与操作
 
@@ -80,7 +84,7 @@ JDK 17、Gradle 8.9、Android SDK 35、Kotlin 2.0.21：
 gradle :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
 ```
 
-可用 Android Studio 打开根目录。SDK 路径设置在 `local.properties` 或 `ANDROID_HOME`。仓库不提交 Gradle wrapper 二进制，安装 Gradle 8.9 后可执行 `gradle wrapper --gradle-version 8.9`。首次构建需下载依赖，玩家运行完全离线。
+可用 Android Studio 打开根目录。SDK 路径设置在 `local.properties` 或 `ANDROID_HOME`。仓库不提交 Gradle wrapper 二进制，安装 Gradle 8.9 后可执行 `gradle wrapper --gradle-version 8.9`。首次构建需下载依赖，玩家无需联网即可进行对局。
 
 单元测试覆盖牌型、穷举合法出牌对照、轮转、春天计分、农民配合及180局完整对局，并单独锁定存档格式：直接读取从 v3.6.0 安装取出的真实存档，验证仍可反序列化且重新序列化后逐字节一致，同时校验 UID 固定与损坏记录的拒绝。CI 在 Android 35 模拟器上检查1280×720、1920×1080、1.3倍系统字体、1280×588宽屏及挖孔屏：完整窗口、原生控件、20张手牌、首尾点击、连续滑选、提示出牌、存档恢复、托管和三家出牌位置，并导出截图。第二项设备测试检查发牌：运行中牌停在槽位之外、操作栏为空、底牌区可见，结束后17张手牌归位、缩放与透明度复位、临时覆盖层清空、底牌区重新隐藏。第三项检查所有包内音频的解码、实际循环、本地音乐导入与损坏文件回滚、重启保留、恢复默认和生命周期；它不代替人耳对音色的判断。
 

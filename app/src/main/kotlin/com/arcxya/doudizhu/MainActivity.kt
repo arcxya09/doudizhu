@@ -91,6 +91,8 @@ class MainActivity: Activity() {
     private val levels=listOf("简单","普通","困难")
     private val gold=Color.rgb(255,217,126)
     private val settings by lazy { getSharedPreferences("settings",0) }
+    private lateinit var updates:UpdateController
+    private var updateBadge:TextView?=null
     private fun dp(n:Int)=(n*resources.displayMetrics.density+.5f).toInt()
     private fun text(value:String,size:Float=18f,color:Int=Color.WHITE)=TextView(this).apply { text=value;textSize=size;setTextColor(color);gravity=Gravity.CENTER;includeFontPadding=false }
     private fun background(color:Int,stroke:Int=Color.TRANSPARENT)=GradientDrawable().apply {setColor(color);cornerRadius=dp(10).toFloat();setStroke(dp(2),stroke)}
@@ -108,6 +110,7 @@ class MainActivity: Activity() {
         immersive()
         nextLevel=settings.getInt("level",1).coerceIn(0,2);speed=settings.getLong("speed",1800L).coerceIn(1000L,2800L)
         val restored=restore();game.last?.let{seatMoves[game.lastPlayer]=it.cards};art=CardArt(this);audio=AudioEngine(this);buildLayout()
+        updates=UpdateController(this,changed={updateBadge?.visibility=if(updates.hasUpdate)View.VISIBLE else View.GONE})
         // A table with no save is dealt too, but audio focus only arrives in onResume, so defer the
         // timeline to that moment and let the animation share the cue's origin.
         dealing=!restored;dealPending=dealing
@@ -161,6 +164,8 @@ class MainActivity: Activity() {
         val clear=tool("重选",1){selected.clear();render()}
         val options=tool("设置",3){showSettings()}
         listOf(clear,autoButton,options).forEachIndexed{i,v->table.place(v,.709f+i*.052f,.003f,.047f,.11f)}
+        updateBadge=text("新",9f,gold).apply{visibility=View.GONE;contentDescription="设置中有新版本";importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
+        table.place(updateBadge!!,.848f,.005f,.02f,.028f)
         table.place(TableWordmark(this),.425f,.198f,.15f,.18f)
         stakes=label("",12f,0xffeef4ff.toInt()).apply{background=background(0x60304368)};table.place(stakes,.32f,.38f,.36f,.04f)
         val self=SeatAvatar(this,"seat_self.webp");val left=SeatAvatar(this,"seat_left.webp");val right=SeatAvatar(this,"seat_right.webp")
@@ -504,11 +509,12 @@ class MainActivity: Activity() {
         difficulty.setOnCheckedChangeListener{_,id->nextLevel=id-100;settings.edit().putInt("level",nextLevel).apply()};content.addView(difficulty)
         content.addView(text("电脑出牌速度（玩家不限时）",19f,gold));val speeds=listOf(1000L,1800L,2800L);val speedGroup=RadioGroup(this).apply{orientation=RadioGroup.HORIZONTAL;gravity=Gravity.CENTER}
         listOf("正常","舒缓","更慢").forEachIndexed{i,label->speedGroup.addView(RadioButton(this).apply{id=200+i;text=label;textSize=18f;setTextColor(Color.WHITE);minHeight=dp(48)})};speedGroup.check(200+speeds.indexOf(speed));speedGroup.setOnCheckedChangeListener{_,id->speed=speeds[id-200];settings.edit().putLong("speed",speed).apply()};content.addView(speedGroup)
-        content.addView(text("完全离线 · 牌局自动保存\n两家连续不出后，上一家自由出牌。\n顺子、连对、飞机主体不含 2 和王。\n炸弹、王炸、春天均翻倍。",17f).apply{setPadding(0,dp(12),0,dp(12))})
+        content.addView(updates.settingsView())
+        content.addView(text("离线对局 · 牌局自动保存\n两家连续不出后，上一家自由出牌。\n顺子、连对、飞机主体不含 2 和王。\n炸弹、王炸、春天均翻倍。",17f).apply{setPadding(0,dp(12),0,dp(12))})
         val scroll=ScrollView(this).apply{addView(content)}
         var restartAfterDismiss=false
         val dialog=AlertDialog.Builder(this).setTitle("声音与牌桌设置").setView(scroll).setPositiveButton("返回牌局",null).setNeutralButton("重新开局"){_,_->restartAfterDismiss=true}.create()
-        dialog.setOnDismissListener{audio.onMusicChanged=null;if(restartAfterDismiss)confirmRestart() else {modal=false;schedule()}};dialog.show();dialog.window?.setBackgroundDrawable(background(0xff283e78.toInt(),0xff769cda.toInt()))
+        dialog.setOnDismissListener{audio.onMusicChanged=null;updates.unbindSettings();if(restartAfterDismiss)confirmRestart() else {modal=false;schedule()}};dialog.show();dialog.window?.setBackgroundDrawable(background(0xff283e78.toInt(),0xff769cda.toInt()))
     }
     private fun confirmRestart(){modal=true;handler.removeCallbacksAndMessages(null);AlertDialog.Builder(this).setTitle("重新发牌？").setMessage("当前牌局不计入战绩。").setPositiveButton("重新开局"){_,_->fresh()}.setNegativeButton("继续本局",null).create().apply{setOnDismissListener{modal=false;schedule()};show()}}
     private fun chooseLocalMusic(){
@@ -561,9 +567,9 @@ class MainActivity: Activity() {
         try{out=file.startWrite();val stream=ObjectOutputStream(out);stream.writeObject(TableSnapshot(SNAPSHOT_FORMAT,game,MatchRecord(games,wins,score)));stream.flush();file.finishWrite(out)}catch(_:IOException){file.failWrite(out);return}
         saveRecord()
     }
-    override fun onResume(){super.onResume();running=true;if(::audio.isInitialized)audio.resume();if(::game.isInitialized){if(dealPending)startDeal();schedule()}}
-    override fun onPause(){running=false;handler.removeCallbacksAndMessages(null);if(dealing)endDeal();if(::audio.isInitialized)audio.pause();if(::game.isInitialized)persist();super.onPause()}
-    override fun onDestroy(){handler.removeCallbacksAndMessages(null);dealAnimator?.cancel();dealAnimator=null;if(::audio.isInitialized)audio.release();super.onDestroy()}
+    override fun onResume(){super.onResume();running=true;if(::audio.isInitialized)audio.resume();if(::game.isInitialized){if(dealPending)startDeal();schedule()};if(::updates.isInitialized)updates.onResume()}
+    override fun onPause(){running=false;if(::updates.isInitialized)updates.onPause();handler.removeCallbacksAndMessages(null);if(dealing)endDeal();if(::audio.isInitialized)audio.pause();if(::game.isInitialized)persist();super.onPause()}
+    override fun onDestroy(){if(::updates.isInitialized)updates.close();handler.removeCallbacksAndMessages(null);dealAnimator?.cancel();dealAnimator=null;if(::audio.isInitialized)audio.release();super.onDestroy()}
     private fun handleBack(){
         if(modal)return;modal=true;handler.removeCallbacksAndMessages(null)
         AlertDialog.Builder(this).setTitle("暂时离开牌桌？").setMessage("当前牌局已经保存，下次打开继续。").setPositiveButton("离开"){_,_->finish()}.setNegativeButton("继续玩",null).create().apply{setOnDismissListener{modal=false;schedule()};show()}

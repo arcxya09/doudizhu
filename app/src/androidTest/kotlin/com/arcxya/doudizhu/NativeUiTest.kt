@@ -23,6 +23,8 @@ import androidx.test.uiautomator.UiScrollable
 import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import org.junit.Assert.*
+import org.junit.After
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
@@ -34,6 +36,22 @@ import kotlin.math.abs
 
 @RunWith(AndroidJUnit4::class)
 class NativeUiTest {
+    private var automaticUpdateWasPresent=false
+    private var originalAutomaticUpdate=true
+
+    @Before fun disableLiveUpdateChecks(){
+        val prefs=InstrumentationRegistry.getInstrumentation().targetContext.getSharedPreferences("updates",0)
+        automaticUpdateWasPresent=prefs.contains("automatic")
+        originalAutomaticUpdate=prefs.getBoolean("automatic",true)
+        prefs.edit().putBoolean("automatic",false).commit()
+    }
+
+    @After fun restoreAutomaticUpdatePreference(){
+        val edit=InstrumentationRegistry.getInstrumentation().targetContext.getSharedPreferences("updates",0).edit()
+        if(automaticUpdateWasPresent)edit.putBoolean("automatic",originalAutomaticUpdate) else edit.remove("automatic")
+        edit.commit()
+    }
+
     private fun all(v: View): List<View> = listOf(v) +
         (if (v is ViewGroup) (0 until v.childCount).flatMap { all(v.getChildAt(it)) } else emptyList())
 
